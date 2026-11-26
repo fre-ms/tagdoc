@@ -13,7 +13,7 @@ digital documents, one tool for one step: [optdoc](https://github.com/fre-ms/opt
 faithful, [ocrdoc](https://github.com/fre-ms/ocrdoc) recognises what is on it, semdoc (to come) understands
 it, tagdoc describes it. It works on any PDF on its own as well.
 
-**Status: pre-alpha (0.1.0), local.**
+**Status: pre-alpha (0.1.0).**
 
 ## What tagdoc writes, and what it leaves to the records app
 

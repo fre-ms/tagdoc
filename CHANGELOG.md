@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.1.0 (unreleased)
+## 0.1.0 (2026-11-26)
 
 tagdoc, step 40 of docrepro: a document described as the standard medRDS says (chapter 7).
 
