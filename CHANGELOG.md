@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1 (2026-11-26)
+
+- tagdoc takes doccor from its tag `v0.2.0`, as optdoc 0.8.0 and ocrdoc 0.2.0 do, so that the
+  tools of docrepro install beside one another (they share one doccor). Nothing of tagdoc's own
+  changed: it uses no model.
+
 ## 0.1.0 (2026-11-26)
 
 tagdoc, step 40 of docrepro: a document described as the standard medRDS says (chapter 7).

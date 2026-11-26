@@ -1,6 +1,6 @@
 [project]
 name = "tagdoc"
-version = "0.1.0"
+version = "0.1.1"
 description = "Describes a document: its title, kind, date, authors and the people it names (with copies of their cards), written into the PDF as medRDS says (XMP and the information dictionary) or into a sidecar; every decision reproducible."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -31,7 +31,7 @@ gui = ["pyside6-essentials>=6.8"]
 tagdoc = "tagdoc.docrepro:TagdocAdapter"
 
 [tool.uv.sources]
-doccor = { git = "https://github.com/fre-ms/doccor", tag = "v0.1.0" }
+doccor = { git = "https://github.com/fre-ms/doccor", tag = "v0.2.0" }
 
 [project.scripts]
 tagdoc = "tagdoc.cli:main"

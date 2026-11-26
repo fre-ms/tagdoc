@@ -13,8 +13,8 @@ wheels = [
 
 [[package]]
 name = "doccor"
-version = "0.1.0"
-source = { git = "https://github.com/fre-ms/doccor?tag=v0.1.0#a5a61fd2384ad242822e180298e7dbd3d8a81959" }
+version = "0.2.0"
+source = { git = "https://github.com/fre-ms/doccor?tag=v0.2.0#c1348a3bb917e1f1bf659647b5d237ee38e996d7" }
 dependencies = [
     { name = "pymupdf" },
 ]
@@ -155,7 +155,7 @@ wheels = [
 
 [[package]]
 name = "tagdoc"
-version = "0.1.0"
+version = "0.1.1"
 source = { editable = "." }
 dependencies = [
     { name = "doccor" },
@@ -176,7 +176,7 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "doccor", git = "https://github.com/fre-ms/doccor?tag=v0.1.0" },
+    { name = "doccor", git = "https://github.com/fre-ms/doccor?tag=v0.2.0" },
     { name = "pymupdf", specifier = ">=1.25,<2" },
     { name = "pyside6-essentials", marker = "extra == 'gui'", specifier = ">=6.8" },
 ]
