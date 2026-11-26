@@ -1,0 +1,646 @@
+{
+	"standard": "medRDS",
+	"version": "0.15",
+	"specification": "https://medrds.org/spec/0.15",
+	"namespace": { "prefix": "medrds", "uri": "https://medrds.org/ns/1.0/" },
+
+	"recordSet": {
+		"description": {
+			"name": "medrds",
+			"extension": "json",
+			"fields": {
+				"Name": "REQUIRED",
+				"MedRDSVersion": "REQUIRED",
+				"TimeZone": "REQUIRED",
+				"RecordIdSystem": "RECOMMENDED",
+				"Kinds": "OPTIONAL",
+				"KeepOnceAbove": "OPTIONAL",
+				"Language": "OPTIONAL",
+				"Facility": "OPTIONAL",
+				"ExchangeCodes": "OPTIONAL"
+			},
+			"meanings": {
+				"Name": "the record set's name, for people",
+				"MedRDSVersion": "the version of the standard that new files are checked in under",
+				"TimeZone": "the IANA time zone whose local time the file names carry",
+				"RecordIdSystem": "the URI of the system the record IDs come from",
+				"Kinds": "kinds of one's own beside the standard's vocabulary, each with a Description and Labels by language",
+				"KeepOnceAbove": "the size in bytes above which a file is kept once: the store of versions then holds a pointer to it, not a second copy",
+				"Language": "the language the place writes in, as a BCP 47 tag: that of every file that does not say otherwise",
+				"Facility": "the place of treatment as other systems know it: its Name, its Identifier, the Type of facility and the practice Setting, each of these a code with its System",
+				"ExchangeCodes": "the codes a copy for another system carries: international (LOINC) or de (IHE Germany); international where nothing is said"
+			},
+			"examples": {
+				"Name": "Akten der Sprechstunde",
+				"MedRDSVersion": "0.15",
+				"TimeZone": "Europe/Berlin",
+				"RecordIdSystem": "https://meddav.org/sid/record-id",
+				"Kinds": "{ \"expertopinion\": { \"Description\": \"Expert opinions written here\", \"Labels\": { \"de\": \"Gutachten\" } } }",
+				"KeepOnceAbove": "52428800",
+				"Language": "de",
+				"Facility": "{ \"Name\": \"Sprechstunde Muster\", \"Type\": [{ \"System\": \"http://ihe-d.de/CodeSystems/PatientBezogenenGesundheitsversorgung\", \"Code\": \"PRA\", \"Display\": \"Arztpraxis\" }] }",
+				"ExchangeCodes": "de"
+			}
+		},
+		"readme": "README",
+		"inbox": "_inbox",
+		"trash": "_trash",
+		"ignoredPrefix": ".",
+		"reservedPrefix": "_",
+		"litter": ["Thumbs.db", "ehthumbs.db", "desktop.ini"],
+		"litterPrefixes": ["~$"],
+		"litterSuffixes": ["~"]
+	},
+
+	"versions": {
+		"folder": "_versions",
+		"separator": "~",
+		"momentPattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}-\\d{2}-\\d{2}Z$",
+		"hashDigits": 16,
+		"pointerExtension": "pointer",
+		"pointerFields": ["Sha256", "Size"]
+	},
+
+	"derived": {
+		"folder": "_derived",
+		"separator": "~",
+		"hashDigits": 16,
+		"extension": "json",
+		"methodPattern": "^[a-z]+$",
+		"fields": {
+			"Source": "REQUIRED",
+			"Method": "REQUIRED",
+			"MadeWith": "REQUIRED",
+			"Made": "REQUIRED",
+			"Language": "OPTIONAL",
+			"Pages": "REQUIRED for text",
+			"Values": "REQUIRED for values"
+		},
+		"meanings": {
+			"Source": "the SHA-256 of the version it was drawn from",
+			"Method": "how it was drawn: one word of the list of methods",
+			"MadeWith": "the program that drew it, with its version",
+			"Made": "when it was drawn, in UTC",
+			"Language": "the language the text was read in, as a BCP 47 tag, where the method needed to be told",
+			"Pages": "the text, one string for each page where the source has pages, else one",
+			"Values": "the values read, each with where it was read"
+		},
+		"methods": {
+			"text": { "description": "the text a file holds as text: the text of a PDF, of a word processor's document, the body of an e-mail", "example": "the text of a letter that came as a PDF", "gives": "Pages" },
+			"ocr": { "description": "text recognised in pictures of writing: a scan, a photo of a page", "example": "the text of a scanned discharge letter", "gives": "Pages" },
+			"speech": { "description": "text recognised in a recording of speech, as the program heard it; a transcript that a person checked is a part of its entry", "example": "the words of a voice message, for searching", "gives": "Pages" },
+			"values": { "description": "values read out of a file to be taken over elsewhere, the results of a laboratory report for instance: proposals, until a person takes them over", "example": "the potassium of a photographed laboratory report, with the line it was read from", "gives": "Values" }
+		},
+		"valueParts": {
+			"printed": "REQUIRED",
+			"page": "REQUIRED where the source has pages",
+			"box": "RECOMMENDED"
+		},
+		"valueMeanings": {
+			"printed": "the line the value was read from, as it was read",
+			"page": "the page it stands on, counted from 1",
+			"box": "where it stands on that page: left, top, right and bottom, in points from the top left corner of the page as it is shown"
+		}
+	},
+
+	"review": {
+		"folder": "_review",
+		"form": "<record ID>__<source>~<method>.json",
+		"fields": {
+			"Reference": "REQUIRED"
+		},
+		"meanings": {
+			"Reference": "the document and the version it was read from, as a result names them (medrds:<record ID>/<document ID>/<version>)"
+		}
+	},
+
+	"binding": {
+		"pictures": ["jpeg", "jpg", "png", "heic", "heif", "tif", "tiff"],
+		"relationship": "Source"
+	},
+
+	"record": {
+		"patient": { "name": "Patient", "extension": "json" },
+		"differentPersonExtension": "https://medrds.org/fhir/StructureDefinition/different-person"
+	},
+
+	"recordId": {
+		"alphabet": "ABCDEFGHJKLMNPQRSTUVWXYZ23456789",
+		"length": 9,
+		"check": "luhn-mod-n",
+		"groups": [4, 4, 1],
+		"inboxSeparator": "__",
+		"testValues": { "K7Q4MX2P": "T", "ABCDEFGH": "W", "22222222": "6", "ZZZZZZZZ": "J" }
+	},
+
+	"names": {
+		"separator": "_",
+		"personSeparator": ",",
+		"forbidden": "/\\:*?\"<>|",
+		"replacement": "-",
+		"maxBytes": 200,
+		"recommendedBytes": 100,
+		"signedSuffix": "-signed",
+		"signedExtension": "pdf",
+		"sidecarExtension": "xmp",
+		"containerExtension": "asice",
+		"tombstoneExtension": "tombstone",
+		"compoundExtensions": ["nii.gz", "tar.gz"],
+		"kindPattern": "^[a-z][a-z0-9]{0,23}$",
+		"extensionPattern": "^[a-z0-9]+$",
+		"unknownTime": "00-00",
+		"unknownDatePart": "00"
+	},
+
+	"kindGroups": {
+		"documents": "Documents: what is written about the patient, here or elsewhere",
+		"assessments": "Assessments: what the patient or the physician filled in or worked out by a fixed instrument",
+		"recordings": "Recordings: where the picture, the sound or the signal is itself what is documented",
+		"meddav": "From medDAV: the patient's card and appointments as medDAV holds them, the source of the results it keeps",
+		"administration": "Administration: what surrounds the treatment"
+	},
+
+	"kinds": {
+		"note": {
+			"group": "documents",
+			"label": { "en": "Note", "de": "Notiz" },
+			"description": "the physician's own note on a consultation or a call",
+			"includes": ["the note on a first consultation", "a note on a telephone call", "a progress note", "the note drawn from a recorded session"],
+			"excludes": [
+				{ "what": "a finding written as a report", "use": "report" },
+				{ "what": "a letter to a colleague", "use": "letter" }
+			],
+			"codes": {"loinc": {"type": {"code": "34109-9", "display": "Note"}, "class": {"code": "34109-9", "display": "Note"}}, "kdl": {"code": "AD010110", "display": "Ärztlicher Verlaufsbericht"}, "ihed": {"class": {"code": "BRI", "display": "Brief"}, "type": {"code": "BERI", "display": "Arztberichte"}}, "why": "IHE Germany: the KDL maps the code of a progress report to the class BRI (letter); its map was made for the archives of hospitals."}
+		},
+		"report": {
+			"group": "documents",
+			"label": { "en": "Report", "de": "Befund" },
+			"description": "a finding or report, one's own or received",
+			"includes": ["the report on an MRI", "a neuropsychological report", "the report on an EEG", "an expert opinion", "a report for an authority"],
+			"excludes": [
+				{ "what": "laboratory results", "use": "lab" },
+				{ "what": "the pictures or the recording the report is about", "use": "image" },
+				{ "what": "a report sent as a letter between physicians", "use": "letter" }
+			],
+			"codes": {"loinc": {"type": {"code": "47045-0", "display": "Study report"}, "class": {"code": "47045-0", "display": "Study report"}}, "kdl": {"code": "AD010109", "display": "Ärztlicher Befundbericht"}, "ihed": {"class": {"code": "BEF", "display": "Befundbericht"}, "type": {"code": "BEFU", "display": "Ergebnisse Diagnostik"}}}
+		},
+		"lab": {
+			"group": "documents",
+			"label": { "en": "Laboratory", "de": "Labor" },
+			"description": "laboratory results",
+			"includes": ["a blood count", "a drug level", "a cerebrospinal fluid analysis", "a genetic test result"],
+			"excludes": [{ "what": "a single value as data", "use": "event" }],
+			"codes": {"loinc": {"type": {"code": "11502-2", "display": "Laboratory report"}, "class": {"code": "26436-6", "display": "Laboratory Studies (set)"}}, "kdl": {"code": "LB120107", "display": "Laborbefund"}, "ihed": {"class": {"code": "LAB", "display": "Laborergebnisse"}, "type": {"code": "BEFU", "display": "Ergebnisse Diagnostik"}}, "why": "The class 26436-6 is a set of studies, as all classes of FHIR R4 for studies are."}
+		},
+		"letter": {
+			"group": "documents",
+			"label": { "en": "Letter", "de": "Arztbrief" },
+			"description": "a letter between physicians, received or sent",
+			"includes": ["a discharge letter", "the letter of a family doctor", "one's own letter to a colleague", "the answer to a referral"],
+			"excludes": [
+				{ "what": "a letter to or from the patient, an insurer or an authority", "use": "correspondence" },
+				{ "what": "the referral itself", "use": "referral" }
+			],
+			"codes": {"loinc": {"type": {"code": "51852-2", "display": "Letter"}, "class": {"code": "34133-9", "display": "Summarization of episode note"}}, "kdl": {"code": "AD010111", "display": "Ambulanzbrief"}, "ihed": {"class": {"code": "BRI", "display": "Brief"}, "type": {"code": "BERI", "display": "Arztberichte"}}, "else": [{"in": "loinc", "code": "18842-5", "display": "Discharge Summary", "for": "a discharge letter"}, {"in": "kdl", "code": "AD010115", "display": "Entlassungsbericht", "for": "a discharge letter"}], "why": "The class 34133-9 is the summary of an episode, which a letter between physicians mostly is; for a discharge letter the type 18842-5 says more."}
+		},
+		"referral": {
+			"group": "documents",
+			"label": { "en": "Referral", "de": "Überweisung" },
+			"description": "a referral, an admission to hospital or a request for a consultation",
+			"includes": ["a referral to a radiologist", "an admission to hospital", "a request for a consultation"],
+			"excludes": [{ "what": "the answer that comes back", "use": "letter" }],
+			"codes": {"loinc": {"type": {"code": "57133-1", "display": "Referral Note"}, "class": {"code": "57133-1", "display": "Referral Note"}}, "kdl": {"code": "AU050102", "display": "Überweisungsschein"}, "ihed": {"class": {"code": "VER", "display": "Verordnung"}, "type": {"code": "AUFN", "display": "Einweisungs- und Aufnahmedokumente"}}, "else": [{"in": "kdl", "code": "AU050101", "display": "Verordnung von Krankenhausbehandlung", "for": "an admission to hospital"}]}
+		},
+		"certificate": {
+			"group": "documents",
+			"label": { "en": "Certificate", "de": "Bescheinigung" },
+			"description": "a certificate issued",
+			"includes": ["a certificate of incapacity for work", "an attestation for a school or an employer", "a certificate for compensation of disadvantages"],
+			"excludes": [{ "what": "a report for an authority that states findings", "use": "report" }],
+			"codes": {"loinc": {}, "kdl": {"code": "AD020104", "display": "Ärztliche Bescheinigung"}, "ihed": {"class": {"code": "ADM", "display": "Administratives Dokument"}, "type": {"code": "BESC", "display": "Ärztliche Bescheinigungen"}}, "else": [{"in": "loinc", "code": "104531-9", "display": "Temporary Incapacity Certificate", "for": "a certificate of incapacity for work"}, {"in": "kdl", "code": "AD020101", "display": "Arbeitsunfähigkeitsbescheinigung", "for": "a certificate of incapacity for work"}, {"in": "loinc", "code": "104988-1", "display": "Medical Fitness Certificate", "for": "a certificate of fitness"}], "why": "LOINC has no active code for every certificate: 80571-3 (Certificate) is discouraged; each kind of certificate has its own. No class of FHIR R4 fits."}
+		},
+		"prescription": {
+			"group": "documents",
+			"label": { "en": "Prescription", "de": "Rezept" },
+			"description": "a prescription of medicines, remedies or aids",
+			"includes": ["a prescription of a medicine", "a prescription of occupational therapy", "a prescription of an aid"],
+			"excludes": [{ "what": "the medication the patient takes, as data", "use": "card" }],
+			"codes": {"loinc": {"type": {"code": "57833-6", "display": "Prescription for Medication"}}, "kdl": {"code": "TH130108", "display": "Rezept"}, "ihed": {"class": {"code": "VER", "display": "Verordnung"}, "type": {"code": "MEDI", "display": "Medikamentöse Therapien"}}, "else": [{"in": "loinc", "code": "57829-4", "display": "Prescription for Medical Equipment or Product", "for": "a prescription of an aid"}, {"in": "kdl", "code": "AM160301", "display": "Heil- / Hilfsmittelverordnung", "for": "a prescription of remedies or aids"}], "why": "No class of FHIR R4 fits a prescription."}
+		},
+		"plan": {
+			"group": "documents",
+			"label": { "en": "Plan", "de": "Behandlungsplan" },
+			"description": "a plan of treatment with a schedule of its own",
+			"includes": ["a radiotherapy plan", "a chemotherapy protocol", "a rehabilitation plan", "a titration schedule", "a medication plan as printed and handed out"],
+			"excludes": [
+				{ "what": "the medicines the patient takes, as data", "use": "card" },
+				{ "what": "what was agreed in a consultation", "use": "note" }
+			],
+			"codes": {"loinc": {"type": {"code": "18776-5", "display": "Plan of Care Note"}}, "kdl": {"code": "VL040309", "display": "Behandlungsplan"}, "ihed": {"class": {"code": "PLA", "display": "Planungsdokument"}, "type": {"code": "FPRO", "display": "Therapiedokumentation"}}, "why": "The class 56447-6 of FHIR R4 is deprecated in LOINC, and no other fits.", "else": [{"in": "kdl", "code": "TH130107", "display": "Medikationsplan", "for": "a medication plan"}, {"in": "loinc", "code": "77604-7", "display": "Medication treatment plan.brief Document", "for": "a medication plan"}]}
+		},
+		"questionnaire": {
+			"group": "assessments",
+			"label": { "en": "Questionnaire", "de": "Fragebogen" },
+			"description": "a questionnaire filled in that is not a rating scale",
+			"includes": ["a history form", "an intake form", "a symptom diary", "a sleep diary"],
+			"excludes": [{ "what": "a rating scale with a result", "use": "scale" }],
+			"codes": {"loinc": {"type": {"code": "74465-6", "display": "Questionnaire response Document"}}, "kdl": {"code": "AU010101", "display": "Anamnesebogen"}, "ihed": {"class": {"code": "DUR", "display": "Durchführungsprotokoll"}, "type": {"code": "AUFN", "display": "Einweisungs- und Aufnahmedokumente"}}, "why": "LOINC has one type for questionnaires and rating scales alike, 74465-6, and no class of FHIR R4 fits either: read back, these codes name neither kind."}
+		},
+		"scale": {
+			"group": "assessments",
+			"label": { "en": "Scale", "de": "Skala" },
+			"description": "a rating scale or psychometric test, filled in, with its result",
+			"includes": ["BDI-II", "PHQ-9", "ASRS", "MoCA", "a neuropsychological test sheet"],
+			"excludes": [
+				{ "what": "a score worked out by the physician from findings", "use": "score" },
+				{ "what": "the report that interprets several tests", "use": "report" }
+			],
+			"codes": {"loinc": {"type": {"code": "74465-6", "display": "Questionnaire response Document"}}, "kdl": {"code": "SD160102", "display": "Testpsychologische Diagnostik"}, "ihed": {"class": {"code": "DUR", "display": "Durchführungsprotokoll"}, "type": {"code": "FPRO", "display": "Therapiedokumentation"}}, "else": [{"in": "kdl", "code": "SD160111", "display": "Dokumentation Depression", "for": "a scale of depression such as BDI-II"}], "why": "LOINC has one type for rating scales and questionnaires alike, 74465-6, and no class of FHIR R4 fits either: read back, these codes name neither kind."}
+		},
+		"score": {
+			"group": "assessments",
+			"label": { "en": "Score", "de": "Score" },
+			"description": "a clinical score worked out from findings",
+			"includes": ["CHA2DS2-VASc", "the Glasgow Coma Scale", "NIHSS", "the modified Rankin Scale", "EDSS"],
+			"excludes": [{ "what": "a scale the patient fills in", "use": "scale" }],
+			"codes": {"loinc": {"type": {"code": "51848-0", "display": "Evaluation Note"}}, "kdl": {"code": "VL010199", "display": "Sonstiger Assessmentbogen"}, "ihed": {"class": {"code": "ASM", "display": "Assessment"}, "type": {"code": "FUNK", "display": "Ergebnisse Funktionsdiagnostik"}}, "else": [{"in": "kdl", "code": "VL010107", "display": "NIH Stroke Scale", "for": "the NIHSS"}], "why": "LOINC has no type for a clinical score; 51848-0, an evaluation note, comes closest. No class of FHIR R4 fits."}
+		},
+		"image": {
+			"group": "recordings",
+			"label": { "en": "Image", "de": "Bild" },
+			"description": "a picture: a photo, a scan of a picture, a study from radiology",
+			"includes": ["a photo of a skin finding", "an MRI study as a folder", "an X-ray picture"],
+			"excludes": [
+				{ "what": "a document that was scanned or photographed", "use": "the kind of the document" },
+				{ "what": "the report on a study", "use": "report" }
+			],
+			"codes": {"loinc": {}, "kdl": {"code": "ED020199", "display": "Foto-/Videodokumentation Sonstige"}, "ihed": {"class": {"code": "BIL", "display": "Bilddaten"}, "type": {"code": "FOTO", "display": "Fotodokumentation"}}, "else": [{"in": "loinc", "code": "72170-4", "display": "Photographic Image", "for": "a photo"}, {"in": "loinc", "code": "18748-4", "display": "Diagnostic imaging study", "for": "a study from radiology"}], "why": "LOINC tells a photo (72170-4) from a study of radiology (18748-4) and has no code for both; the class 18726-0 of FHIR R4 is for radiology alone."}
+		},
+		"audio": {
+			"group": "recordings",
+			"label": { "en": "Audio", "de": "Ton" },
+			"description": "a sound recording and its transcript",
+			"includes": ["the recording of a consultation", "its transcript as transcribed and as corrected", "a voice sample"],
+			"excludes": [{ "what": "the note drawn from a recorded session", "use": "note" }],
+			"codes": {"loinc": {}, "kdl": {"code": "ED010199", "display": "Sonstige Audiodokumentation"}, "ihed": {"class": {"code": "DUR", "display": "Durchführungsprotokoll"}, "type": {"code": "BEFU", "display": "Ergebnisse Diagnostik"}}, "why": "LOINC has no type of document for a recording of sound, and FHIR R4 no class (FHIR R5 has the media category audio)."}
+		},
+		"video": {
+			"group": "recordings",
+			"label": { "en": "Video", "de": "Video" },
+			"description": "a video recording",
+			"includes": ["a video of a gait", "a video of a seizure", "a recorded video consultation"],
+			"excludes": [],
+			"codes": {"loinc": {}, "kdl": {"code": "ED020199", "display": "Foto-/Videodokumentation Sonstige"}, "ihed": {"class": {"code": "BIL", "display": "Bilddaten"}, "type": {"code": "FOTO", "display": "Fotodokumentation"}}, "why": "LOINC has no type of document for a video, and FHIR R4 no class. The KDL has a code for videos of operations alone and gives a video the code of a picture."}
+		},
+		"signal": {
+			"group": "recordings",
+			"label": { "en": "Signal", "de": "Biosignal" },
+			"description": "a recorded signal of the body",
+			"includes": ["an EEG recording", "an ECG recording", "a polysomnography", "actigraphy data"],
+			"excludes": [{ "what": "the report on the recording", "use": "report" }],
+			"codes": {"loinc": {}, "kdl": {"code": "DG060199", "display": "Sonstige Dokumentation Funktionsdiagnostik"}, "ihed": {"class": {"code": "BEF", "display": "Befundbericht"}, "type": {"code": "FUNK", "display": "Ergebnisse Funktionsdiagnostik"}}, "else": [{"in": "loinc", "code": "11523-8", "display": "EEG study", "for": "an EEG"}, {"in": "loinc", "code": "11524-6", "display": "EKG study", "for": "an ECG"}, {"in": "loinc", "code": "28633-6", "display": "Polysomnography (sleep) study", "for": "a polysomnography"}], "why": "LOINC has a type for each kind of recording (EEG, ECG, polysomnography) and none for all; the class 27897-8 of FHIR R4 is for neuromuscular studies alone."}
+		},
+		"card": {
+			"group": "meddav",
+			"label": { "en": "Card", "de": "Karteikarte" },
+			"description": "the patient's card as medDAV holds it, master data and clinical values, a vCard 4.0",
+			"includes": ["the card with the lasting diagnoses, the allergies and the medication", "the card as it was each time its clinical values changed"],
+			"excludes": [
+				{ "what": "a medication plan as printed and handed out", "use": "plan" },
+				{ "what": "a letter that names diagnoses", "use": "letter" }
+			],
+			"sameSource": true,
+			"codes": {"loinc": {}, "ihed": {}, "why": "No classification has a type of document for a person's card: it is master data, with the results drawn from documents."}
+		},
+		"event": {
+			"group": "meddav",
+			"label": { "en": "Appointment", "de": "Termin" },
+			"description": "an appointment or journal entry as medDAV holds it, with its clinical values, an iCalendar object",
+			"includes": ["an encounter with its diagnoses, findings and notes", "a journal entry with the values of a laboratory report that came by post"],
+			"excludes": [
+				{ "what": "the laboratory report itself", "use": "lab" },
+				{ "what": "the physician's note written as a document", "use": "note" }
+			],
+			"sameSource": true,
+			"codes": {"loinc": {}, "ihed": {}, "why": "No classification has a type of document for an appointment as data: it is the encounter as medDAV holds it, with what came of it."}
+		},
+		"consent": {
+			"group": "administration",
+			"label": { "en": "Consent", "de": "Einwilligung" },
+			"description": "a consent, its withdrawal or restriction; a release from confidentiality",
+			"includes": ["a consent to audio recording", "a release from confidentiality", "the withdrawal of a consent", "a restriction of entries"],
+			"excludes": [],
+			"codes": {"loinc": {"type": {"code": "59284-0", "display": "Consent Document"}}, "kdl": {"code": "AM050105", "display": "Einverständniserklärung Behandlung"}, "ihed": {"class": {"code": "ADM", "display": "Administratives Dokument"}, "type": {"code": "EINW", "display": "Einwilligungen/Aufklärungen"}}, "else": [{"in": "loinc", "code": "64292-6", "display": "Release of Information Consent Document", "for": "a release from confidentiality"}, {"in": "kdl", "code": "AM050107", "display": "Schweigepflichtentbindung", "for": "a release from confidentiality"}], "why": "The class 57016-8 of FHIR R4 is for consent to a privacy policy alone, and fits no other consent; a release from confidentiality has codes of its own."}
+		},
+		"correspondence": {
+			"group": "administration",
+			"label": { "en": "Correspondence", "de": "Korrespondenz" },
+			"description": "letters, e-mails and applications to and from the patient, insurers, authorities",
+			"includes": ["an e-mail of the patient", "an application to an insurer", "a form of an authority", "a letter to an employer"],
+			"excludes": [
+				{ "what": "a letter between physicians", "use": "letter" },
+				{ "what": "an invoice", "use": "invoice" }
+			],
+			"codes": {"loinc": {"type": {"code": "56444-3", "display": "Healthcare communication Document"}}, "kdl": {"code": "AM190199", "display": "Sonstiger Schriftverkehr"}, "ihed": {"class": {"code": "ADM", "display": "Administratives Dokument"}, "type": {"code": "SCHR", "display": "Schriftwechsel (administrativ)"}}, "else": [{"in": "kdl", "code": "AM190104", "display": "Schriftverkehr Krankenkasse", "for": "letters to and from an insurer"}], "why": "The class 47049-2 of FHIR R4 is deprecated in LOINC, and no other fits."}
+		},
+		"invoice": {
+			"group": "administration",
+			"label": { "en": "Invoice", "de": "Rechnung" },
+			"description": "an invoice for treatment, a reminder, a receipt",
+			"includes": ["an invoice for treatment", "a reminder", "a receipt of payment"],
+			"excludes": [],
+			"codes": {"loinc": {"type": {"code": "115560-5", "display": "Financial Document"}}, "kdl": {"code": "AM010106", "display": "Rechnung ambulante/stationäre Behandlung"}, "ihed": {"class": {"code": "ADM", "display": "Administratives Dokument"}, "type": {"code": "ABRE", "display": "Abrechnungsdokumente"}}, "why": "No class of FHIR R4 fits an invoice."}
+		},
+		"disclosure": {
+			"group": "administration",
+			"label": { "en": "Disclosure", "de": "Herausgabe" },
+			"description": "a copy of the record, or of a span of it, that went out",
+			"includes": ["the copy given to the patient", "an extract for an expert", "an extract for an insurer"],
+			"excludes": [],
+			"codes": {"loinc": {"type": {"code": "11503-0", "display": "Medical records"}}, "kdl": {"code": "VL160101", "display": "Auszug aus den medizinischen Daten"}, "ihed": {"class": {"code": "DOK", "display": "Dokumente ohne besondere Form (Notizen)"}, "type": {"code": "BERI", "display": "Arztberichte"}}, "why": "No class of FHIR R4 fits a copy of a record."}
+		}
+	},
+	"recordingKinds": ["audio", "video"],
+	"reference": {
+		"scheme": "medrds",
+		"form": "medrds:<record ID>/<document ID>",
+		"versionForm": "medrds:<record ID>/<document ID>/<version>",
+		"documentPattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$",
+		"versionPattern": "^[0-9a-f]{64}$"
+	},
+	"consentKind": "consent",
+
+	"exchange": {
+		"systems": {
+			"loinc": { "uri": "http://loinc.org", "oid": "2.16.840.1.113883.6.1", "name": "LOINC", "version": "2.83",
+				"checked": "every code and its long common name looked up on HL7's terminology server (tx.fhir.org), against LOINC 2.83: active, and of the scale Doc for types" },
+			"kdl": { "uri": "http://dvmd.de/fhir/CodeSystem/kdl", "version": "2026", "oid": "1.2.276.0.76.5.562",
+				"oids": { "2024": "1.2.276.0.76.5.552", "2025": "1.2.276.0.76.5.553", "2026": "1.2.276.0.76.5.562" }, "name": "KDL",
+				"checked": "the FHIR package dvmd.kdl.r4 2026.0.0 of the DVMD: its code system, and its two maps to IHE Germany (kdl-ihe-classcode, kdl-ihe-typecode)" },
+			"ihedClass": { "uri": "http://ihe-d.de/CodeSystems/IHEXDSclassCode", "oid": "1.3.6.1.4.1.19376.3.276.1.5.8", "name": "IHE-D classCode", "version": "value set 1.2.276.0.76.11.32, version 3",
+				"checked": "the FHIR package de.ihe-d.terminology 3.0.1 of IHE Germany, and ART-DECOR" },
+			"ihedType": { "uri": "http://ihe-d.de/CodeSystems/IHEXDStypeCode", "oid": "1.3.6.1.4.1.19376.3.276.1.5.9", "name": "IHE-D typeCode", "version": "value set 1.2.276.0.76.11.38, version 3",
+				"checked": "the FHIR package de.ihe-d.terminology 3.0.1 of IHE Germany, and ART-DECOR" },
+			"ihedFacility": { "uri": "http://ihe-d.de/CodeSystems/PatientBezogenenGesundheitsversorgung", "oid": "1.3.6.1.4.1.19376.3.276.1.5.2", "name": "IHE-D healthcareFacilityTypeCode",
+				"version": "value set 1.2.276.0.76.11.36, version 3", "checked": "the FHIR package de.ihe-d.terminology 3.0.1 of IHE Germany" },
+			"ihedSetting": { "uri": "http://ihe-d.de/CodeSystems/AerztlicheFachrichtungen", "oid": "1.3.6.1.4.1.19376.3.276.1.5.4", "name": "IHE-D practiceSettingCode",
+				"version": "value set 1.2.276.0.76.11.37, version 3", "checked": "the FHIR package de.ihe-d.terminology 3.0.1 of IHE Germany" },
+			"confidentiality": { "uri": "http://terminology.hl7.org/CodeSystem/v3-Confidentiality", "oid": "2.16.840.1.113883.5.25", "name": "HL7 Confidentiality",
+				"version": "HL7 Terminology 5.0.0", "checked": "HL7 Terminology (terminology.hl7.org)" },
+			"format": { "uri": "http://ihe.net/fhir/ihe.formatcode.fhir/CodeSystem/formatcode", "oid": "1.3.6.1.4.1.19376.1.2.3", "name": "IHE FormatCode",
+				"version": "1.6.0", "checked": "the code system IHE FormatCode of IHE" },
+			"snomed": { "uri": "http://snomed.info/sct", "oid": "2.16.840.1.113883.6.96", "name": "SNOMED CT",
+				"checked": "the example value sets of FHIR R4 for the kind of facility and the practice setting (c80-facilitycodes, c80-practice-codes)" }
+		},
+		"classes": "the Document Class value set of FHIR R4 (http://hl7.org/fhir/ValueSet/document-classcodes, 4.0.1), 46 codes of LOINC; FHIR R5 has dropped it",
+		"profiles": {
+			"international": { "class": "loinc", "type": "loinc", "description": "classCode and typeCode from LOINC, where the kind has them" },
+			"de": { "class": "ihedClass", "type": "ihedType", "description": "classCode and typeCode of IHE Germany, as the KDL maps the kind's code to them" }
+		},
+		"confidentiality": { "N": "normal", "R": "restricted", "V": "very restricted" },
+		"format": { "code": "urn:ihe:iti:xds:2017:mimeTypeSufficient", "display": "mimeType Sufficient" },
+		"attributes": [
+			{ "xds": "entryUUID", "fhir": "identifier (official)", "from": "the version's xmpMM:InstanceID" },
+			{ "xds": "uniqueId", "fhir": "masterIdentifier", "from": "the version's xmpMM:InstanceID as an OID under 2.25" },
+			{ "xds": "patientId, sourcePatientId", "fhir": "subject", "from": "the record ID, assigned by the RecordIdSystem of medrds.json: its URI as an OID under 2.25, by way of a name-based UUID of it" },
+			{ "xds": "sourcePatientInfo", "fhir": "", "from": "Patient.json: the name and the date of birth" },
+			{ "xds": "mimeType", "fhir": "content.attachment.contentType", "from": "the extension of the file, by the schema's table of media types" },
+			{ "xds": "formatCode", "fhir": "content.format", "from": "urn:ihe:iti:xds:2017:mimeTypeSufficient: the media type says what the format is" },
+			{ "xds": "hash", "fhir": "content.attachment.hash", "from": "the SHA-1 of the file, worked out when it goes: in hexadecimal in XDS, in base64 in FHIR" },
+			{ "xds": "size", "fhir": "content.attachment.size", "from": "the size of the file in bytes" },
+			{ "xds": "URI", "fhir": "content.attachment.url", "from": "the name of the document in the package" },
+			{ "xds": "languageCode", "fhir": "content.attachment.language", "from": "the file's dc:language, else the Language of medrds.json" },
+			{ "xds": "confidentialityCode", "fhir": "securityLabel", "from": "the file's medrds:confidentiality, else N (normal)" },
+			{ "xds": "healthcareFacilityTypeCode", "fhir": "context.facilityType", "from": "the Type of the Facility in medrds.json" },
+			{ "xds": "practiceSettingCode", "fhir": "context.practiceSetting", "from": "the Setting of the Facility in medrds.json" },
+			{ "xds": "SubmissionSet.submissionTime", "fhir": "", "from": "the moment the package is made" },
+			{ "xds": "SubmissionSet.author", "fhir": "", "from": "who makes the package, and the Name of the Facility" },
+			{ "xds": "SubmissionSet.sourceId", "fhir": "", "from": "the Identifier of the Facility where it is an OID, else the name of the record set as an OID under 2.25" },
+			{ "xds": "SubmissionSet.uniqueId", "fhir": "", "from": "a new UUID as an OID under 2.25" },
+			{ "xds": "SubmissionSet.title", "fhir": "", "from": "for whom the package is, else the patient's name" }
+		],
+		"forms": {
+			"DTM": { "pattern": "YYYYMMDDHHMMSS", "meaning": "a moment in UTC, as precise as it is known; a date alone as YYYYMMDD, YYYYMM or YYYY, as far as it is known" },
+			"CX": { "pattern": "<ID>^^^&<OID>&ISO", "meaning": "an identifier with the OID of whoever assigned it" },
+			"XCN": { "pattern": "^<name>", "meaning": "a person: the whole name in the place of the family name, since medRDS does not take a name apart" },
+			"XON": { "pattern": "<name>", "meaning": "a body, by its name" },
+			"XTN": { "pattern": "^^Internet^<address>", "meaning": "an address of e-mail; one author, one person, one address" },
+			"coded value": { "pattern": "", "meaning": "a Classification: the code as its nodeRepresentation, the OID of its system in the slot codingScheme, its display as its Name" },
+			"OID under 2.25": { "pattern": "2.25.<decimal>", "meaning": "a UUID as one decimal number after 2.25 (ITU-T X.667); a URI first as a name-based UUID (RFC 9562, version 5, in the namespace of URLs)" }
+		},
+		"xdm": {
+			"folder": "IHE_XDM",
+			"subset": "SUBSET01",
+			"documentPrefix": "DOC",
+			"documentDigits": 5,
+			"layout": {
+				"README.TXT": "who made the package, when, with what, and what it holds; its lines end in CR LF, as a medium has them",
+				"INDEX.HTM": "the documents with their dates, kinds and titles, linked, for whoever has a browser (XHTML Basic 1.1)",
+				"IHE_XDM/SUBSET01/METADATA.XML": "the metadata of every document, as XDS writes them: one SubmitObjectsRequest of ebRIM 3.0",
+				"IHE_XDM/SUBSET01/DOC00001.PDF": "the documents, under names of ISO 9660 level 1 that any medium takes: DOC, five digits, and three letters of the extension in upper case"
+			},
+			"extensions": { "jpeg": "JPG", "tiff": "TIF", "json": "JSN", "heic": "HEI", "docx": "DCX", "xlsx": "XLX", "asice": "ASC" }
+		},
+		"mimeTypes": {
+			"pdf": "application/pdf", "md": "text/markdown", "txt": "text/plain", "json": "application/fhir+json", "xml": "application/xml",
+			"jpg": "image/jpeg", "jpeg": "image/jpeg", "png": "image/png", "tif": "image/tiff", "tiff": "image/tiff", "heic": "image/heic",
+			"mp3": "audio/mpeg", "wav": "audio/wav", "m4a": "audio/mp4", "mp4": "video/mp4", "mov": "video/quicktime",
+			"eml": "message/rfc822", "vcf": "text/vcard", "ics": "text/calendar", "zip": "application/zip", "dcm": "application/dicom", "asice": "application/vnd.etsi.asic-e+zip",
+			"odt": "application/vnd.oasis.opendocument.text", "docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+			"xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet", "ods": "application/vnd.oasis.opendocument.spreadsheet"
+		}
+	},
+
+	"fields": [
+		{ "field": "Title", "keys": ["title"], "xmp": ["dc:title"], "xds": "title", "fhir": "content.attachment.title", "level": "REQUIRED",
+			"meaning": "the title of the name, or longer", "example": "Brief des Hausarztes" },
+		{ "field": "Kind", "keys": ["kind"], "xmp": ["dc:type"], "xds": "classCode, typeCode", "fhir": "category, type", "level": "REQUIRED",
+			"meaning": "the kind of the name", "example": "letter" },
+		{ "field": "Document type", "keys": ["typeCode"], "xmp": ["medrds:typeCode"], "level": "OPTIONAL", "xds": "typeCode", "fhir": "type",
+			"meaning": "the type of the document in a classification, where it says more than the kind: the system and the code, divided by a vertical bar", "example": "http://loinc.org|18842-5" },
+		{ "field": "Author", "keys": ["creator"], "xmp": ["dc:creator"], "xds": "author (authorPerson)", "fhir": "author", "level": "RECOMMENDED",
+			"meaning": "who wrote it: the physician, the laboratory, the sender; one or more people or bodies",
+			"example": "Dr. Hans Hausarzt <mailto:praxis@hausarzt.example>" },
+		{ "field": "Institution", "keys": ["institution"], "xmp": ["medrds:institution"], "level": "OPTIONAL", "xds": "author (authorInstitution)", "fhir": "author (an Organization)",
+			"meaning": "the body the authors wrote for: a hospital, a practice, a laboratory", "example": "Klinik Musterstadt <https://klinik.example>" },
+		{ "field": "Authenticator", "keys": ["authenticator"], "xmp": ["medrds:authenticator"], "level": "OPTIONAL", "xds": "legalAuthenticator", "fhir": "authenticator",
+			"meaning": "who took responsibility for the content, by signing it or releasing it", "example": "Prof. Dr. Erika Beispiel <mailto:beispiel@klinik.example>" },
+		{ "field": "Description, keywords", "keys": ["description", "subject"], "xmp": ["dc:description", "dc:subject"], "xds": "comments", "fhir": "description", "level": "OPTIONAL",
+			"meaning": "free text; tags", "example": "Vorbefunde anbei" },
+		{ "field": "Language", "keys": ["language"], "xmp": ["dc:language"], "level": "OPTIONAL", "xds": "languageCode", "fhir": "content.attachment.language",
+			"meaning": "the language of the content, as a BCP 47 tag; where it is not said, that of the record set", "example": "de" },
+		{ "field": "Source", "keys": ["source"], "xmp": ["dc:source"], "xds": "referenceIdList", "fhir": "context.related", "level": "RECOMMENDED",
+			"meaning": "where the document itself can be found again: a DOI, a URL, the message ID of an e-mail, the sender's reference",
+			"example": "mid:20260320.1234@hausarzt.example" },
+		{ "field": "Made with", "keys": ["creatorTool"], "xmp": ["xmp:CreatorTool"], "xds": "", "fhir": "", "level": "RECOMMENDED",
+			"meaning": "the program; for transcripts and drafts the model", "example": "whisper-large-v3 (local)" },
+		{ "field": "Clinical date", "keys": ["date"], "xmp": ["xmp:CreateDate"], "xds": "creationTime, serviceStartTime", "fhir": "content.attachment.creation, context.period.start", "level": "REQUIRED",
+			"meaning": "the date and time of the name, with the offset from UTC; the date alone where the time is not known",
+			"example": "2026-03-12T10:00:00+01:00" },
+		{ "field": "Metadata written", "keys": ["metadataDate"], "xmp": ["xmp:MetadataDate"], "xds": "", "fhir": "meta.lastUpdated", "level": "REQUIRED",
+			"meaning": "when this version's metadata were written", "example": "2026-03-12T10:48:00+01:00" },
+		{ "field": "Document", "keys": ["documentId"], "xmp": ["xmpMM:DocumentID"], "xds": "", "fhir": "identifier", "level": "REQUIRED",
+			"meaning": "the same for all versions of a file", "example": "urn:uuid:6f1c2a0e-5b7d-4c1e-9a3f-2d8e4b6a1c90" },
+		{ "field": "Version", "keys": ["instanceId"], "xmp": ["xmpMM:InstanceID"], "xds": "entryUUID, uniqueId", "fhir": "identifier, masterIdentifier", "level": "REQUIRED",
+			"meaning": "one per version", "example": "urn:uuid:0b9d3e77-1f4a-4d2c-8e61-7a5c9f2b3d14" },
+		{ "field": "Previous version", "keys": ["derivedFrom"], "xmp": ["xmpMM:DerivedFrom"], "xds": "an association RPLC", "fhir": "relatesTo (replaces)", "level": "REQUIRED", "fromVersion": 2,
+			"meaning": "the previous version: its document ID, its version ID, the file name it was filed under and its SHA-256",
+			"example": "{ documentId, instanceId, name: \"2026-03-12_10-00_note_Erstgespräch.md\", sha256 }" },
+		{ "field": "History", "keys": ["history"], "xmp": ["xmpMM:History"], "xds": "", "fhir": "", "level": "REQUIRED", "fromVersion": 2,
+			"meaning": "one event per version: what was done, when, by whom, what changed; where the version settles a fork, the SHA-256 of the versions it sets aside (settles)",
+			"example": "[{ action: \"corrected\", when, by, changed: \"Schlafdauer berichtigt\" }]" },
+		{ "field": "Patient", "keys": ["patient"], "xmp": ["medrds:patient"], "xds": "patientId, sourcePatientId", "fhir": "subject", "level": "REQUIRED",
+			"meaning": "the record ID at the time of filing", "example": "K7Q4MX2PT" },
+		{ "field": "Filed", "keys": ["filed", "filedBy"], "xmp": ["medrds:filed", "medrds:filedBy"], "xds": "", "fhir": "", "level": "REQUIRED",
+			"meaning": "when and by whom it was checked in", "example": "2026-03-23T09:10:00+01:00; Dr. F. Muster <mailto:muster@sprechstunde.example>" },
+		{ "field": "Origin", "keys": ["origin"], "xmp": ["medrds:origin"], "xds": "", "fhir": "", "level": "REQUIRED",
+			"meaning": "where the file came from: the channel, the sender, when it arrived, the name and hash it had",
+			"example": "{ channel: \"email\", from: [\"Dr. Hans Hausarzt <mailto:praxis@hausarzt.example>\"], received, name, sha256 }" },
+		{ "field": "Restricts", "keys": ["restricts"], "xmp": ["medrds:restricts"], "xds": "", "fhir": "", "level": "OPTIONAL",
+			"meaning": "in a restriction: the document IDs it restricts", "example": "[\"urn:uuid:6f1c2a0e-5b7d-4c1e-9a3f-2d8e4b6a1c90\"]" },
+		{ "field": "Confidentiality", "keys": ["confidentiality"], "xmp": ["medrds:confidentiality"], "level": "OPTIONAL", "xds": "confidentialityCode", "fhir": "securityLabel",
+			"meaning": "how confidential the content is, a code of HL7: N normal, R restricted, V very restricted; normal where it is not said", "example": "R" },
+		{ "field": "Files", "keys": ["files"], "xmp": ["medrds:files"], "xds": "", "fhir": "", "level": "REQUIRED", "of": "folder",
+			"meaning": "of an entry that is a folder: every file of the folder, with its path in it, its size in bytes and its SHA-256",
+			"example": "[{ path: \"SERIES01/IM000001\", size: 408, sha256 }]" },
+		{ "field": "Cards", "keys": ["cards"], "xmp": ["medrds:cards"], "xds": "author (authorTelecom)", "fhir": "author (a contained Practitioner or Organization)",
+			"level": "OPTIONAL",
+			"meaning": "a copy of each card of an address book that a person or body of the metadata is named with (7.2), as it was when the file was filed: a vCard 4.0 as its text, with its UID; who they are and how they are reached, nothing else",
+			"example": "[\"BEGIN:VCARD\\nVERSION:4.0\\nUID:urn:uuid:4d2c9b1e-7a3f-4c5d-9e8f-0a1b2c3d4e5f\\nKIND:individual\\nFN:Dr. Erika Beispiel\\nEMAIL:beispiel@praxis.example\\nEND:VCARD\\n\"]" },
+		{ "field": "Standard", "keys": ["conformsTo"], "xmp": ["dcterms:conformsTo"], "xds": "", "fhir": "", "level": "REQUIRED",
+			"meaning": "the version of the standard it was checked in under", "example": "https://medrds.org/spec/0.11" }
+	],
+
+	"origin": {
+		"parts": {
+			"channel": "REQUIRED",
+			"from": "RECOMMENDED",
+			"received": "RECOMMENDED",
+			"name": "REQUIRED",
+			"sha256": "REQUIRED",
+			"bound": "REQUIRED"
+		},
+		"meanings": {
+			"channel": "how the file came: one word of the list of channels",
+			"from": "who or what it came from; REQUIRED where the file came from outside",
+			"received": "when it arrived, where that differs from the clinical date",
+			"name": "the name the file had before check-in; REQUIRED where it had one",
+			"sha256": "the SHA-256 of what the file was before check-in; REQUIRED where it existed before",
+			"bound": "where several files were bound into one at check-in: each of them, in the order of the pages, with its name and its SHA-256; REQUIRED there"
+		},
+		"outside": ["post", "fax", "email", "download", "handover"],
+		"channels": {
+			"written": { "description": "written here by a person, in a program", "example": "a note typed after a consultation" },
+			"program": { "description": "made here by a program: a certificate issued, a transcript, an export", "example": "a certificate that the practice software issued" },
+			"device": { "description": "recorded here by a device: a camera, a recorder, a measuring instrument", "example": "a photo of a skin finding" },
+			"post": { "description": "came on paper by post", "example": "a hospital's letter, scanned on arrival" },
+			"fax": { "description": "came by fax", "example": "a laboratory report sent by fax" },
+			"email": { "description": "came by e-mail, of whatever kind", "example": "a colleague's letter as an attachment" },
+			"download": { "description": "fetched from a portal or a website", "example": "findings from a laboratory's portal" },
+			"handover": { "description": "brought along or handed over, on paper or on a medium", "example": "a CD with an MRI study that the patient brought" }
+		}
+	},
+
+	"people": {
+		"schemes": {
+			"mailto": "an e-mail address: the identifier to prefer, unique and a way to reach the person",
+			"tel": "a telephone number",
+			"https": "a web address: a practice's page, a profile, an identifier of a register such as ORCID",
+			"urn": "an identifier of a register that has no web address",
+			"acct": "an account of the program in use; only where nothing else is known"
+		},
+		"cards": {
+			"reference": ["urn:uuid", "urn:x-contact-uid"],
+			"meaning": "the card of an address book that holds the person or body, by its UID: urn:uuid: and a UUID, compared without regard to case, or urn:x-contact-uid: and any other UID, compared as written",
+			"fields": ["creator", "institution", "authenticator", "filedBy", "origin.from"],
+			"forbidden": ["PHOTO", "LOGO", "SOUND", "KEY"],
+			"forbiddenPrefixes": ["X-SECDAV-", "X-MEDDAV-"],
+			"allowed": ["X-MEDDAV-LANR", "X-MEDDAV-BAN", "X-MEDDAV-EFN", "X-MEDDAV-BSNR", "X-MEDDAV-IK", "X-MEDDAV-TELEMATIK-ID", "X-MEDDAV-KIM"]
+		}
+	},
+
+	"tombstone": { "reasons": ["merged", "deleted"] },
+
+	"rules": {
+		"DESCRIPTION_MISSING": { "level": "error", "depth": "names", "finding": "no medrds.json at the top",
+			"remedy": "Write medrds.json; without it a program cannot tell that the folder is a record set." },
+		"DESCRIPTION_INVALID": { "level": "error", "depth": "names", "finding": "medrds.json cannot be read, or lacks a REQUIRED field",
+			"remedy": "Put the file right and file it; the version before stays in the store." },
+		"ROOT_UNKNOWN": { "level": "error", "depth": "names", "finding": "something at the top that the standard does not name",
+			"remedy": "Move it out of the record set, or into _inbox if it is to be checked in." },
+		"RECORD_FOLDER_NAME": { "level": "error", "depth": "names", "finding": "a folder at the top that is not named as a record",
+			"remedy": "Name it family name, given names, date of birth and record ID; or move it out." },
+		"RECORD_ID_CHECK": { "level": "error", "depth": "names", "finding": "a record ID whose check character is wrong",
+			"remedy": "The ID was mistyped. Take it from the patient's card or from Patient.json." },
+		"RECORD_ID_TWICE": { "level": "error", "depth": "names", "finding": "two records with the same ID",
+			"remedy": "If they are one person, merge them; if not, one of them carries a wrong ID." },
+		"PATIENT_MISSING": { "level": "error", "depth": "names", "finding": "a record without Patient.json",
+			"remedy": "Write Patient.json for the person the folder is named for." },
+		"PATIENT_INVALID": { "level": "error", "depth": "names", "finding": "Patient.json cannot be read, or is no FHIR Patient",
+			"remedy": "Put it right and file it; the version before stays in the store." },
+		"PATIENT_MISMATCH": { "level": "error", "depth": "names", "finding": "folder name and Patient.json name different IDs",
+			"remedy": "Find out which is right before anything else is filed here." },
+		"NOT_CHECKED_IN": { "level": "error", "depth": "names", "finding": "a file or folder in a record whose name is not that of an entry",
+			"remedy": "Check it in: it gets its name, its metadata and its place in the store of versions then." },
+		"DATE_INVALID": { "level": "error", "depth": "names", "finding": "a date or time that does not exist",
+			"remedy": "The entry was named by hand. Check it in anew under the right date." },
+		"VERSION_NAME": { "level": "error", "depth": "names", "finding": "something in the store of versions that is not named as a copy or as a pointer",
+			"remedy": "It was put there by hand. Move it out; the store is written by programs alone." },
+		"DERIVED_NAME": { "level": "error", "depth": "names", "finding": "something in _derived/ that is not named as a derived file",
+			"remedy": "It was put there by hand. Move it out; what lies in _derived/ is written by programs alone." },
+		"COMPANION_ALONE": { "level": "error", "depth": "names", "finding": "a sidecar, a signed form or a container without its file",
+			"remedy": "The file it belongs to was renamed or removed. Bring the two together again." },
+		"WITHDRAWN_REMAINS": { "level": "error", "depth": "names", "finding": "a tombstone of an entry beside files of that entry",
+			"remedy": "Taking the entry out was not finished: move the remaining files to the trash." },
+		"CASE_COLLISION": { "level": "error", "depth": "names", "finding": "two names that differ only in case or normalisation",
+			"remedy": "Give one of the two another title; on many file systems only one of them can exist." },
+		"NAME_TOO_LONG": { "level": "error", "depth": "names", "finding": "a name longer than 200 bytes",
+			"remedy": "Shorten the title." },
+		"META_MISSING": { "level": "error", "depth": "metadata", "finding": "a REQUIRED field of the metadata is absent",
+			"remedy": "The file was not checked in, or by a program that does not write the field. Check it in, or file it as a new version." },
+		"META_INVALID": { "level": "error", "depth": "metadata", "finding": "a field of the metadata is not in the form the standard asks",
+			"remedy": "Write the field in its form, in a new version." },
+		"META_NAME_MISMATCH": { "level": "error", "depth": "metadata", "finding": "date, time or kind in the metadata differ from the name",
+			"remedy": "The file was renamed after it was filed. Find out which of the two is right." },
+		"META_WRONG_PATIENT": { "level": "error", "depth": "metadata", "finding": "the file names a patient who is not this record's: filed with the wrong patient",
+			"remedy": "Take the entry out of this record and check it in with the patient it names." },
+		"META_CHAIN_BROKEN": { "level": "error", "depth": "metadata", "finding": "a version names one before it that the store does not hold, or one that is another document",
+			"remedy": "The copy of the earlier version was removed from the store, or the later one was not made from it. Compare with backups." },
+		"CARD_MISSING": { "level": "error", "depth": "metadata", "finding": "a person or body is named with a card of which the metadata hold no copy",
+			"remedy": "File a new version of the metadata with a copy of the card as the address book holds it, or name the person without the card." },
+		"CARD_CONTENT": { "level": "error", "depth": "metadata", "finding": "a copy of a card holds what does not belong in it: a photo, a key, properties of secDAV, or properties of medDAV other than the identifiers of practitioners and bodies",
+			"remedy": "File a new version of the metadata with the copy made anew: who the person is and how they are reached, nothing else." },
+		"CARD_UNUSED": { "level": "warning", "depth": "metadata", "finding": "a copy of a card that nobody of the metadata is named with",
+			"remedy": "Name the person with the card, or leave the copy out of the next version of the metadata." },
+		"FILE_MISSING": { "level": "error", "depth": "metadata", "finding": "a newest version whose file is not in the folder",
+			"remedy": "The file was removed or renamed by hand. Put it back from the store, or take the entry out if that was meant." },
+		"VERSION_DAMAGED": { "level": "error", "depth": "metadata", "finding": "a copy whose content is not what its name says, or a pointer that cannot be read",
+			"remedy": "The copy was changed after it was filed. Bring it back from a backup." },
+		"FOLDER_CHANGED": { "level": "error", "depth": "metadata", "finding": "an entry that is a folder whose files are not as its sidecar lists them",
+			"remedy": "A file in the folder was changed, removed or added. Bring the folder back from a backup, or from where it came." },
+		"BOUND_MISSING": { "level": "error", "depth": "metadata", "finding": "a PDF that pictures were bound into that does not hold, in the version that was bound, each of them as its origin names it",
+			"remedy": "The PDF was changed after it was bound, or its origin names pictures it never held. Take the version that was bound from the store, or bind the pictures again from where they came." },
+		"KIND_UNKNOWN": { "level": "warning", "depth": "names", "finding": "a kind neither in the vocabulary nor declared",
+			"remedy": "Declare the kind in medrds.json, or use one of the vocabulary." },
+		"NOT_FILED": { "level": "warning", "depth": "names", "finding": "a file named as an entry that has no version in the store: laid in by hand, waiting to be checked in",
+			"remedy": "Check it in: it gets its metadata and its first version then." },
+		"FORMAT_CHANGED": { "level": "warning", "depth": "names", "finding": "a file named as an entry that has no version, lying where a file of the same entry under another extension lay, which is gone: waiting for a person to say whether it is that one's next version",
+			"remedy": "Say whether it is: a program then files it as the next version of the other (8.1.4), or puts the other back, or checks this one in by itself." },
+		"DERIVED_ORPHAN": { "level": "warning", "depth": "names", "finding": "a derived file of content that no version in the store has",
+			"remedy": "It was drawn from a file that was never filed, or its entry left without it. Delete it; a program draws it again where it is wanted." },
+		"FILE_CHANGED": { "level": "warning", "depth": "metadata", "finding": "a file that is not as its newest version: changed outside, waiting to be filed",
+			"remedy": "File it as the next version. The version before is in the store." },
+		"VERSIONS_FORK": { "level": "warning", "depth": "metadata", "finding": "two versions of a file that stand beside each other, and no later version that settles which holds",
+			"remedy": "They were filed at the same time in two places. Decide which holds, or bring them together, and file that: the new version names the one it follows, and sets the other aside." },
+		"DERIVED_DAMAGED": { "level": "warning", "depth": "metadata", "finding": "a derived file whose content is not what its name says, or that cannot be read",
+			"remedy": "Delete it; a program draws it again where it is wanted. Nothing of the record is lost by that." },
+		"NAME_LONG": { "level": "warning", "depth": "names", "finding": "a name longer than 100 bytes",
+			"remedy": "Shorten the title of future entries; containers that encrypt names may have to shorten this one." },
+		"PERSON_TWICE": { "level": "warning", "depth": "names", "finding": "two records with the same name and date of birth",
+			"remedy": "Merge them if they are one person, or note in both that they are two." },
+		"CONSENT_MISSING": { "level": "warning", "depth": "names", "finding": "a recording in a record without a consent filed no later than it",
+			"remedy": "File the consent; if there is none, the recording should not be there." },
+		"LITTER": { "level": "warning", "depth": "names", "finding": "a file that an operating system or an open program left behind",
+			"remedy": "Delete it, once the program that left it is closed." }
+	}
+}
