@@ -12,8 +12,9 @@ stays empty rather than guessed.
   first date that is no date of birth ("geb.", "*").
 - **Language**: German or English, by their commonest words.
 
-The semantic step before tagdoc (semdoc, to come) is to make better suggestions from what
-it understood; tagdoc then takes its annotations.
+A program that understands the text (medical terms, identifying information; no step of
+docrepro) could make better suggestions; tagdoc would take them as a person's values or
+from a file, not from a step before it.
 """
 
 from __future__ import annotations
