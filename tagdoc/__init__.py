@@ -13,4 +13,4 @@ Everything runs locally.
 What the tools of docrepro share is doccor's (:mod:`doccor`).
 """
 
-__version__ = "0.2.0"
+__version__ = "0.2.1"

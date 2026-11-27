@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.2.1 (2026-11-27)
+
+With doccor 0.3.0, which every tool of docrepro names. Nothing a caller relies on changed:
+interface 2, `tagdoc-config` version 1.
+
+- tagdoc takes doccor from its tag `v0.3.0`, as typdoc 0.2.1, optdoc 0.10.1 and ocrdoc 0.4.0 do,
+  so that the tools can be installed together.
+- The kinds of error `unreadable` and `encrypted` are worded in doccor, with the same words.
+
 ## 0.2.0 (2026-11-27)
 
 Interface 2: one field renamed, in every tool of docrepro at once.

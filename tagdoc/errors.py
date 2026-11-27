@@ -14,15 +14,6 @@ _OWN: dict[str, dict[str, str]] = {
         "en": "{tool} reads PDFs; optdoc makes one of a photo or an image first.",
         "de": "{tool} liest PDFs; aus einem Foto oder Bild macht optdoc zuerst eines.",
     },
-    "unreadable": {
-        "en": "The file cannot be read; it may be damaged or not what its name says.",
-        "de": "Die Datei lässt sich nicht lesen; sie ist vielleicht beschädigt oder nicht, "
-              "was ihr Name sagt.",
-    },
-    "encrypted": {
-        "en": "The PDF is protected by a password.",
-        "de": "Das PDF ist mit einem Kennwort geschützt.",
-    },
     "bad-field": {
         "en": "The value given for {field} is not of its kind ({rule}).",
         "de": "Der Wert für {field} passt nicht ({rule}).",

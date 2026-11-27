@@ -1,6 +1,6 @@
 [project]
 name = "tagdoc"
-version = "0.2.0"
+version = "0.2.1"
 description = "Describes a document: its title, kind, date, authors and the people it names (with copies of their cards), written into the PDF as medRDS says (XMP and the information dictionary) or into a sidecar; every decision reproducible."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
   # the core the tools of docrepro share: configuration documents, errors, the command
   # line's manners, no network, the window's building blocks
-  "doccor>=0.1",
+  "doccor>=0.3",
   "pymupdf>=1.25,<2",
 ]
 
@@ -31,7 +31,7 @@ gui = ["pyside6-essentials>=6.8"]
 tagdoc = "tagdoc.docrepro:TagdocAdapter"
 
 [tool.uv.sources]
-doccor = { git = "https://github.com/fre-ms/doccor", tag = "v0.2.0" }
+doccor = { git = "https://github.com/fre-ms/doccor", tag = "v0.3.0" }
 
 [project.scripts]
 tagdoc = "tagdoc.cli:main"

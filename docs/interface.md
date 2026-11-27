@@ -11,7 +11,7 @@ field called `pdf` would then point at a picture. Nothing else changed.
 ## `about`
 
 ```json
-{"interface": 2, "made_with": "tagdoc 0.2.0", "version": "0.2.0",
+{"interface": 2, "made_with": "tagdoc 0.2.1", "version": "0.2.1",
  "standard": "https://medrds.org/spec/0.15",
  "fields": ["title", "kind", "creator", "description", "subject", "language", "source", "creatorTool",
             "date", "typeCode", "institution", "authenticator", "confidentiality", "cards"],
@@ -33,7 +33,7 @@ Values (each a person's decision): `--title`, `--kind <kind>`, `--date <ISO 8601
 `usage` error.
 
 ```json
-{"interface": 2, "made_with": "tagdoc 0.2.0",
+{"interface": 2, "made_with": "tagdoc 0.2.1",
  "document": "<folder>/<stem>.pdf", "config": "<folder>/<stem>.tagdoc.json", "sidecar": null,
  "signed": false, "rebased": false, "decided": ["institution", "kind"],
  "problems": [{"code": "META_MISSING", "field": "date", "why": "date is required"}]}
@@ -49,7 +49,7 @@ later* `{"config": …, "finished": false}`; *Cancel* is the error `cancelled`.
 ## The configuration document: `tagdoc-config`, version 1
 
 ```json
-{"format": "tagdoc-config", "version": 1, "made_with": "tagdoc 0.2.0",
+{"format": "tagdoc-config", "version": 1, "made_with": "tagdoc 0.2.1",
  "standard": "https://medrds.org/spec/0.15",
  "input": {"sha256": "…", "bytes": 245678, "suffix": ".pdf"},
  "options": {"sidecar": false, "creator_tool": "docrepro 0.1.0"},
