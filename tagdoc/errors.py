@@ -10,10 +10,6 @@ from doccor import errors as _core
 from doccor.errors import LANGUAGES, DocError, describe_error
 
 _OWN: dict[str, dict[str, str]] = {
-    "not-pdf": {  # worded as ocrdoc words it
-        "en": "{tool} reads PDFs; optdoc makes one of a photo or an image first.",
-        "de": "{tool} liest PDFs; aus einem Foto oder Bild macht optdoc zuerst eines.",
-    },
     "bad-field": {
         "en": "The value given for {field} is not of its kind ({rule}).",
         "de": "Der Wert für {field} passt nicht ({rule}).",

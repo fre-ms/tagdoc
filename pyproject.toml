@@ -1,12 +1,12 @@
 [project]
 name = "tagdoc"
-version = "0.2.1"
-description = "Describes a document: its title, kind, date, authors and the people it names (with copies of their cards), written into the PDF as medRDS says (XMP and the information dictionary) or into a sidecar; every decision reproducible."
+version = "0.3.0"
+description = "Describes a document: its title, kind, date, authors and the people it names (with copies of their cards), written as medRDS says into the PDF (XMP and the information dictionary), into a picture (XMP and EXIF in JPEG, PNG, TIFF, WebP, HEIC; XMP in GIF) or into a sidecar; every decision reproducible."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "AGPL-3.0-or-later"
 authors = [{ name = "fre.ms", email = "fre.ms@fre.ms" }]
-keywords = ["metadata", "xmp", "pdf", "vcard", "medrds", "records", "reproducible"]
+keywords = ["metadata", "xmp", "exif", "pdf", "jpeg", "heic", "vcard", "medrds", "records", "reproducible"]
 classifiers = [
   "Development Status :: 2 - Pre-Alpha",
   "Environment :: Console",
@@ -25,6 +25,9 @@ dependencies = [
 
 [project.optional-dependencies]
 gui = ["pyside6-essentials>=6.8"]
+# a HEIC photo is written only where what was written can be checked by looking: the same
+# pixels, read by libheif (pillow-heif). Without it, its description goes into a sidecar.
+heic = ["pillow>=11", "pillow-heif>=0.18"]
 
 [project.entry-points."docrepro.steps"]
 # tagdoc is step 40 of docrepro; installing it puts it into the chain
@@ -41,6 +44,8 @@ Source = "https://github.com/fre-ms/tagdoc"
 
 [dependency-groups]
 dev = [
+  "pillow>=11",
+  "pillow-heif>=0.18",
   "pytest>=8",
   "pytest-timeout>=2.3",
   "ruff>=0.6",

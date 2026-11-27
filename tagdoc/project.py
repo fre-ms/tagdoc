@@ -8,18 +8,33 @@ times):
 
 - **Reproducing.**  The input and the document give the same result, byte for byte.
 - **Resuming.**  The window saves the document and opens it again where the person stopped;
-  the PDF tagdoc writes carries it too (``tagdoc.json``).
+  the PDF tagdoc writes carries it too (``tagdoc.json``); beside a picture it lies as a
+  file, since a picture has no place for it.
 - **Going on after an earlier step changed.**  A description is of the whole document, not
   of a page: when the input changed (optdoc or ocrdoc made it anew), every field a person
   decided stays, and tagdoc's own suggestions are made again from the new text
   (:attr:`Project.rebased`).
 
-A PDF signed or time-stamped by someone else must stay as it is (medRDS 7.5): its
-description goes into a sidecar, as it does where the person asks for one.
+**A document need not be a PDF.**  tagdoc describes a picture as well and writes the
+description into it where its format has a place (:mod:`tagdoc.formats`); the picture
+stays a picture, its own data untouched.
+
+**Where the description goes into a sidecar** (medRDS 7.5): a PDF signed or time-stamped
+by someone else must stay as it is; a picture of a type without a place for a description
+(BMP, PNM), or one tagdoc cannot write into without risk, stays as it came; and wherever
+the person asks for one.
+
+**What tagdoc suggests** comes from three sides, in this order: what the document says of
+itself as the standard writes it (a description it carries already: every field of it);
+what its text says, by rules (:mod:`tagdoc.describe`; the text of a PDF, and for a
+picture the reading ocrdoc laid beside it); and what a picture says of itself otherwise
+(its XMP and EXIF: a description, who made it, keywords, the camera or program).  A
+camera's date is never taken for the clinical date: it says when the photo was taken.
 """
 
 from __future__ import annotations
 
+import json
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -27,9 +42,10 @@ from typing import Any
 
 import pymupdf
 from doccor import documents
+from doccor import pictures as view
 from doccor.errors import DocError
 
-from tagdoc import __version__, describe, medrds
+from tagdoc import __version__, describe, exif, formats, medrds
 from tagdoc.errors import TagdocError
 
 FORMAT = "tagdoc-config"
@@ -51,9 +67,9 @@ RULES: dict[str, str] = {
 
 @dataclass
 class Options:
-    """The settings: the description into a sidecar rather than into the PDF
+    """The settings: the description into a sidecar rather than into the document
     (``sidecar``), and the program the document is made with (``creator_tool``; docrepro
-    gives its own; else tagdoc suggests what the PDF names)."""
+    gives its own; else tagdoc suggests what the document names)."""
 
     sidecar: bool = False
     creator_tool: str | None = None
@@ -120,24 +136,59 @@ def load_config(path: str | Path) -> dict[str, Any]:
 
 @dataclass
 class Described:
-    """The result: the PDF as tagdoc gives it (with the description inside, or as it came
-    where the description goes into a sidecar), the sidecar's packet (None without one),
-    the configuration document, and what is still missing or wrong."""
+    """The result: the document as tagdoc gives it (with the description inside, or as
+    it came where the description goes into a sidecar), the sidecar's packet (None without
+    one), the configuration document, what is still missing or wrong, where the
+    description was written ("xmp" and "info" in a PDF, "xmp" and "exif" in a picture, or
+    "sidecar"), and why it went into a sidecar where it did ("asked", "signed", or why the
+    document had no place for it)."""
 
     source: Path
-    pdf: bytes
+    document: bytes
     sidecar: str | None
     config: dict[str, Any]
     problems: list[dict[str, str]] = field(default_factory=list)
+    written: tuple[str, ...] = ()
+    why_sidecar: str | None = None
+
+
+def _reading(source: Path, sha256: str) -> dict[str, Any] | None:
+    """ocrdoc's reading of a picture, which lies beside it (``<stem>.reading.json``),
+    where it is of this very picture: a reading names the file it was made of by its
+    SHA-256, and ocrdoc hands a picture on as it came."""
+    try:
+        reading = json.loads(source.with_name(f"{source.stem}.reading.json")
+                             .read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+    if not isinstance(reading, dict) or reading.get("format") != "ocrdoc-reading":
+        return None
+    named = reading.get("input")
+    return reading if isinstance(named, dict) and named.get("sha256") == sha256 else None
+
+
+def _device(texts: dict[int, str]) -> str | None:
+    """The camera or program a picture's EXIF names: the maker and the model, with the
+    program in brackets; else the program alone."""
+    make, model = texts.get(exif.MAKE, ""), texts.get(exif.MODEL, "")
+    device = model if model.lower().startswith(make.lower()) else f"{make} {model}".strip()
+    program = texts.get(exif.SOFTWARE, "")
+    if device and program:
+        return f"{device} ({program})"
+    return device or program or None
 
 
 class Project:
-    """The description of one PDF; see the module."""
+    """The description of one document, a PDF or a picture; see the module."""
 
-    def __init__(self, source: Path, doc: pymupdf.Document, sha256: str, size: int,
+    def __init__(self, source: Path, doc: pymupdf.Document | None, sha256: str, size: int,
                  options: Options) -> None:
         self.source = source
-        self.doc = doc
+        self.doc = doc  # a PDF; None for a picture
+        self.picture = doc is None
+        self.data = source.read_bytes() if self.picture else b""  # a picture, as it came
+        self.said = (formats.held(self.data, source.suffix) if self.picture
+                     else formats.Held())  # what a picture says of itself
         self.sha256 = sha256
         self.size = size
         self.options = options
@@ -148,20 +199,32 @@ class Project:
     @classmethod
     def open(cls, source: str | Path, options: Options | None = None,
              config: dict[str, Any] | None = None) -> Project:
-        """A project on a PDF: fresh, or as ``config`` left it.  Raises "missing",
-        "not-pdf", "unreadable", "encrypted", "bad-config"."""
+        """A project on a PDF or a picture: fresh, or as ``config`` left it.  Raises
+        "missing", "unsupported" (neither a PDF nor a picture), "unreadable", "encrypted",
+        "bad-config"."""
         source = Path(source)
         if not source.is_file():
             raise TagdocError("missing")
-        if source.suffix.lower() != ".pdf":
-            raise TagdocError("not-pdf")
-        try:
-            doc = pymupdf.open(source)
-        except Exception as e:  # MuPDF words its failures with the file's name
-            raise TagdocError("unreadable") from e
-        if doc.needs_pass:
-            doc.close()
-            raise TagdocError("encrypted")
+        suffix = source.suffix.lower()
+        doc: pymupdf.Document | None = None
+        if suffix == ".pdf":
+            try:
+                doc = pymupdf.open(source)
+            except Exception as e:  # MuPDF words its failures with the file's name
+                raise TagdocError("unreadable") from e
+            if doc.needs_pass:
+                doc.close()
+                raise TagdocError("encrypted")
+        elif view.is_picture(source):
+            try:
+                with source.open("rb") as file:
+                    head = file.read(16)
+            except OSError as e:
+                raise TagdocError("unreadable") from e
+            if not formats.genuine(head, suffix):
+                raise TagdocError("unreadable")
+        else:
+            raise TagdocError("unsupported", suffix=suffix or "(none)")
         if config is not None:
             options = Options.from_dict(config.get("options", {}))
         project = cls(source, doc, documents.digest(source), source.stat().st_size,
@@ -200,12 +263,33 @@ class Project:
 
     # -- the fields ------------------------------------------------------------------------------
     def suggestion(self) -> dict[str, Any]:
-        """tagdoc's suggestions for the document (made once): what the text says
-        (:func:`tagdoc.describe.suggest`), and the program it was made with."""
+        """tagdoc's suggestions for the document (made once); see the module for where
+        they come from."""
         if self._suggested is None:
-            found = describe.suggest(self.doc)
-            tool = self.options.creator_tool or self.doc.metadata.get("creator") \
-                or self.doc.metadata.get("producer")
+            found: dict[str, Any] = {}
+            if self.doc is not None:
+                found = describe.suggest(self.doc)
+                packet = self.doc.get_xml_metadata() or None
+                tool = self.doc.metadata.get("creator") or self.doc.metadata.get("producer")
+                said, standard = medrds.parse_xmp(packet)
+            else:
+                reading = _reading(self.source, self.sha256)
+                if reading is not None:
+                    found = describe.suggest_from_reading(reading)
+                said, standard = medrds.parse_xmp(self.said.packet)
+                texts = self.said.texts
+                own = {"title": said.get("title"),
+                       "description": said.get("description") or texts.get(exif.DESCRIPTION),
+                       "creator": said.get("creator") or ([texts[exif.ARTIST]]
+                                                          if exif.ARTIST in texts else None),
+                       "subject": said.get("subject")}
+                for name, value in own.items():
+                    if value and name not in found:
+                        found[name] = value
+                tool = said.get("creatorTool") or _device(texts)
+            if standard:  # a description as the standard writes it: every field of it
+                found.update({k: v for k, v in said.items() if k in medrds.FIELDS})
+            tool = self.options.creator_tool or found.get("creatorTool") or tool
             if tool:
                 found["creatorTool"] = tool
             self._suggested = {k: v for k, v in found.items() if _fits(k, v)}
@@ -260,12 +344,20 @@ class Project:
     @property
     def signed(self) -> bool:
         """True for a PDF signed or time-stamped by someone else (it stays as it is)."""
-        return self.doc.get_sigflags() > 0
+        return self.doc is not None and self.doc.get_sigflags() > 0
+
+    @property
+    def places(self) -> tuple[str, ...]:
+        """Where the document has a place for a description: "xmp" and "info" in a PDF,
+        "xmp" and (but for a GIF) "exif" in a picture; nothing for a picture of a type
+        without one."""
+        return formats.places(self.source.suffix) if self.picture else ("xmp", "info")
 
     @property
     def sidecar(self) -> bool:
-        """True when the description goes into a sidecar: asked for, or the PDF signed."""
-        return self.options.sidecar or self.signed
+        """True when the description goes into a sidecar: asked for, the PDF signed, or
+        a picture of a type without a place for it."""
+        return self.options.sidecar or self.signed or not self.places
 
     def problems(self) -> list[dict[str, str]]:
         """What is missing (a title, a kind, a date: the standard requires them) and what
@@ -299,7 +391,8 @@ class Project:
         return path
 
     def close(self) -> None:
-        self.doc.close()
+        if self.doc is not None:
+            self.doc.close()
 
     # -- the result ------------------------------------------------------------------------------
     def build(self) -> Described:
@@ -308,11 +401,23 @@ class Project:
 
         config = self.config()
         meta = self.meta()
-        if self.sidecar:
-            return Described(self.source, self.source.read_bytes(), medrds.serialise_xmp(meta),
-                             config, self.problems())
-        return Described(self.source, output.described_pdf(self.doc, meta, config), None,
-                         config, self.problems())
+        why = ("asked" if self.options.sidecar else "signed" if self.signed
+               else None if self.places else "no-place")
+        if why is None and self.doc is not None:
+            return Described(self.source, output.described_pdf(self.doc, meta, config), None,
+                             config, self.problems(), ("xmp", "info"))
+        if why is None:
+            # in step with the description: what EXIF has a text for (medRDS 7.4)
+            names = "; ".join(medrds.parse_person(c)[0] or c for c in meta.get("creator") or [])
+            texts = {exif.DESCRIPTION: meta.get("description"), exif.ARTIST: names or None}
+            try:
+                picture, done = formats.written(self.data, self.source.suffix,
+                                                medrds.merge_xmp(self.said.packet, meta), texts)
+                return Described(self.source, picture, None, config, self.problems(), done)
+            except formats.NoPlace as e:  # it stays as it came: the description beside it
+                why = e.reason
+        return Described(self.source, self.data if self.picture else self.source.read_bytes(),
+                         medrds.serialise_xmp(meta), config, self.problems(), ("sidecar",), why)
 
 
 __all__ = ["EMBEDDED", "FORMAT", "FORMAT_VERSION", "RULES", "SUFFIX", "Described", "Options",

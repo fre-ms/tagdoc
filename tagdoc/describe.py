@@ -66,40 +66,81 @@ _GERMAN = frozenset("der die das und mit von für ist nicht bei den dem im zu wi
 _ENGLISH = frozenset("the and of with for is not to in on we you this that are".split())
 
 
+Line = tuple[str, float, float]  # its text, its top as a share of the page, its size
+
+
 def text_of(doc: pymupdf.Document) -> str:
     """The text of every page, as the PDF holds it."""
     return "\n".join(doc[n].get_text("text") for n in range(len(doc)))
 
 
-def title_of(doc: pymupdf.Document, kind: str | None = None) -> str | None:
-    """The title the first page suggests: in its upper part, a line of at most 60
-    characters that names a document of ``kind``; else the line set in the largest type
-    there (three characters at least, no more than 90); None for a page without text."""
+def lines_of(doc: pymupdf.Document) -> list[Line]:
+    """The lines of the first page of a PDF, with where they stand and their type size."""
     if len(doc) == 0:
-        return None
+        return []
     page = doc[0]
-    words = _TITLES.get(kind) if kind else None
-    best: tuple[float, float, str] | None = None
-    named: tuple[float, str] | None = None
+    found = []
     for block in page.get_text("dict")["blocks"]:
         for line in block.get("lines", []):
             spans = line.get("spans", [])
-            text = re.sub(r"\s+", " ", "".join(s["text"] for s in spans)).strip()
-            if not 3 <= len(text) <= 90 or not re.search(r"[A-Za-zÄÖÜäöüß]{3}", text):
-                continue
-            top = line["bbox"][1]
-            if top > page.rect.height * 0.45:
-                continue
-            if words and len(text) <= 60 and re.search(words, text.lower()) \
-                    and (named is None or top < named[0]):
-                named = (top, text)
-            size = max(s["size"] for s in spans)
-            larger = best is None or size > best[0] + 0.5
-            if larger or (best is not None and abs(size - best[0]) <= 0.5 and top < best[1]):
-                best = (size, top, text)
+            if spans:
+                found.append(("".join(s["text"] for s in spans),
+                              line["bbox"][1] / page.rect.height, max(s["size"] for s in spans)))
+    return found
+
+
+def lines_of_reading(page: dict[str, Any]) -> list[Line]:
+    """The lines of a page of a reading (``ocrdoc-reading``), with where they stand and
+    how high their words are (the middle one of each line: a capital or a descender makes
+    a single word higher than its type)."""
+    text, words, height = page.get("text"), page.get("words"), page.get("height")
+    if not isinstance(text, str) or not isinstance(words, list) \
+            or not isinstance(height, int | float) or height <= 0:
+        return []
+    found = []
+    start = 0
+    for line in text.split("\n"):
+        end = start + len(line)
+        boxes = [w["box"] for w in words
+                 if isinstance(w, dict) and isinstance(w.get("start"), int)
+                 and start <= w["start"] < max(end, start + 1)
+                 and isinstance(w.get("box"), list) and len(w["box"]) == 4]
+        if boxes:
+            heights = sorted(float(b[3]) - float(b[1]) for b in boxes)
+            found.append((line.replace("\t", " "), min(float(b[1]) for b in boxes) / height,
+                          heights[len(heights) // 2]))
+        start = end + 1
+    return found
+
+
+def title_from(lines: list[Line], kind: str | None = None, within: float = 0.5) -> str | None:
+    """The title the first page suggests: in its upper part, a line of at most 60
+    characters that names a document of ``kind``; else the line set in the largest type
+    there (three characters at least, no more than 90; of lines whose sizes differ by no
+    more than ``within``, the upper one); None for a page without text."""
+    words = _TITLES.get(kind) if kind else None
+    best: tuple[float, float, str] | None = None
+    named: tuple[float, str] | None = None
+    for raw, top, size in lines:
+        text = re.sub(r"\s+", " ", raw).strip()
+        if not 3 <= len(text) <= 90 or not re.search(r"[A-Za-zÄÖÜäöüß]{3}", text):
+            continue
+        if top > 0.45:
+            continue
+        if words and len(text) <= 60 and re.search(words, text.lower()) \
+                and (named is None or top < named[0]):
+            named = (top, text)
+        larger = best is None or size > best[0] + within
+        if larger or (best is not None and abs(size - best[0]) <= within and top < best[1]):
+            best = (size, top, text)
     if named is not None:
         return named[1]
     return best[2] if best else None
+
+
+def title_of(doc: pymupdf.Document, kind: str | None = None) -> str | None:
+    """The title the first page of a PDF suggests (:func:`title_from`)."""
+    return title_from(lines_of(doc), kind)
 
 
 def kind_of(text: str) -> str | None:
@@ -158,11 +199,28 @@ def language_of(text: str) -> str | None:
     return None
 
 
-def suggest(doc: pymupdf.Document) -> dict[str, Any]:
-    """tagdoc's suggestions for a document: title, kind, date, language (those it found)."""
-    text = text_of(doc)
+def _suggested(text: str, lines: list[Line], within: float) -> dict[str, Any]:
     kind = kind_of(text)
-    found: dict[str, Any] = {"title": title_of(doc, kind), "kind": kind, "date": date_of(text)}
+    found: dict[str, Any] = {"title": title_from(lines, kind, within), "kind": kind,
+                             "date": date_of(text)}
     language = language_of(text)
     found["language"] = [language] if language else None
     return {k: v for k, v in found.items() if v is not None}
+
+
+def suggest(doc: pymupdf.Document) -> dict[str, Any]:
+    """tagdoc's suggestions for a PDF: title, kind, date, language (those it found)."""
+    return _suggested(text_of(doc), lines_of(doc), 0.5)
+
+
+def suggest_from_reading(reading: dict[str, Any]) -> dict[str, Any]:
+    """tagdoc's suggestions for a picture from what was read on it (a reading of ocrdoc,
+    which lies beside a picture): the same rules as for the text of a PDF."""
+    pages = [page for page in reading.get("pages") or [] if isinstance(page, dict)]
+    text = "\n".join(page["text"].replace("\t", " ") for page in pages
+                     if isinstance(page.get("text"), str))
+    lines = lines_of_reading(pages[0]) if pages else []
+    # what was read has no type sizes, only how high each word stands: lines within a
+    # tenth of the usual height count as the same size
+    sizes = sorted(size for _text, _top, size in lines)
+    return _suggested(text, lines, 0.1 * sizes[len(sizes) // 2] if sizes else 0.5)

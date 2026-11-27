@@ -177,6 +177,8 @@ class DescribePanel(QWidget):
     def _note(self) -> None:
         """What is missing, and what is wrong with the cards."""
         lines = [self.w("sidecar_note")] if self.project.signed else []
+        if not self.project.places:
+            lines.append(self.w("no_place_note"))
         problems = self.project.problems()
         missing = [self.w(f"field_{p['field']}") for p in problems if p["code"] == "META_MISSING"]
         lines.append(self.w("missing", fields=", ".join(missing)) if missing

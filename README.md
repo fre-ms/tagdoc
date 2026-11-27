@@ -5,15 +5,21 @@ who wrote it and for which body, who took responsibility, keywords, the language
 again, how confidential it is, and copies of the cards of an address book that the people and bodies it
 names are named with. It suggests what the text tells (a title, the kind, the date, the language), a person
 confirms or changes it, and tagdoc writes it as the standard [medRDS](https://medrds.org) says (chapter 7):
-into the PDF, as XMP with the information dictionary in step, or, where the PDF must stay as it is (signed
-by someone else), into a sidecar. Everything runs on your own computer; nothing is sent anywhere.
+into the PDF, as XMP with the information dictionary in step; into a picture, as its XMP with its EXIF in
+step; or, where the file must stay as it is (signed by someone else) or has no place for it, into a sidecar.
+Everything runs on your own computer; nothing is sent anywhere.
+
+**A document need not be a PDF.** tagdoc describes JPEG, PNG, TIFF, WebP, HEIC and GIF pictures in the place
+each format has for a description, and BMP and PNM pictures beside them; a picture stays a picture, and its
+own data are never touched.
 
 It is step 40 of **docrepro**, a family of tools that reproduce photographed and scanned documents as real
-digital documents, one tool for one step: [optdoc](https://github.com/fre-ms/optdoc) makes the page
-faithful, [ocrdoc](https://github.com/fre-ms/ocrdoc) recognises what is on it, semdoc (to come) understands
-it, tagdoc describes it. It works on any PDF on its own as well.
+digital documents, one tool for one step: [typdoc](https://github.com/fre-ms/typdoc) changes the type
+(binds pictures into a PDF), [optdoc](https://github.com/fre-ms/optdoc) makes the page faithful,
+[ocrdoc](https://github.com/fre-ms/ocrdoc) recognises what is on it, semdoc (to come) understands it, tagdoc
+describes it. It works on any PDF and any picture on its own as well.
 
-**Status: pre-alpha (0.2.1).**
+**Status: pre-alpha (0.3.0).**
 
 ## What tagdoc writes, and what it leaves to the records app
 
@@ -45,12 +51,46 @@ sidecar tagdoc wrote. The vocabulary comes from the standard's schema, of which 
 against the standard's own where that is at hand (`MEDRDS=<path>`). What a PDF's own metadata held beyond the
 standard stays (a mark of PDF/A, the producer).
 
+## Pictures: read and written in the place each format has
+
+| picture | XMP | EXIF, in step with it |
+|---|---|---|
+| JPEG | an APP1 segment | `ImageDescription`, `Artist` in the EXIF segment |
+| PNG | the chunk `iTXt` `XML:com.adobe.xmp` | the chunk `eXIf` |
+| TIFF | entry 700 of the first directory | entries 270 and 315 of it |
+| WebP | the chunk `XMP ` | the chunk `EXIF` |
+| HEIC, HEIF | an item `application/rdf+xml` | the item `Exif` |
+| GIF | the application extension `XMP Data` | (a GIF has none) |
+| BMP, PNM | no place: the sidecar `<file name>.xmp` | |
+
+- **The picture's own data are not touched**: the tests decode every type before and after and compare the
+  pixels. The XMP of a JPEG and of a PNG is written as medRDS's reference library writes it, byte for byte;
+  and that library reads the description back from every type.
+- **What the picture says of itself stays**: the camera, the moment, the place, a colour profile, every
+  property of its XMP the standard does not define. tagdoc reads it too: a description and an author the
+  picture names are suggested, and the camera as the program it was made with. A camera's date is never
+  taken for the clinical date.
+- **In step** are the two texts EXIF has for what a description says, `ImageDescription` (the description)
+  and `Artist` (the names of the authors), written as UTF-8.
+- **Nothing moves, and what is replaced is gone.** An EXIF block keeps every entry where it stands (a
+  camera's own notes point at theirs); the bytes of a text that was corrected are set to zero, so that it
+  does not stay in the file where no program shows it.
+- **A HEIC photo is checked by looking**: tagdoc trusts what it wrote only when libheif shows the same
+  pixels and finds the description (pillow-heif, the extra `heic`); otherwise the photo stays as it came
+  and the description goes into a sidecar. The answer says where a description went, and why.
+- **What tagdoc suggests for a picture** comes from the reading ocrdoc laid beside it
+  (`<name>.reading.json`, where it names this very picture): the same rules as for the text of a PDF.
+
+medRDS (0.15) names the place for PDF, JPEG and PNG and a sidecar for the rest; tagdoc writes each format's
+own place, which the standard's library reads all the same. `--sidecar` keeps any file as it came.
+
 ## Every step can be reproduced and resumed
 
-The configuration document (`<name>.tagdoc.json`, also inside the PDF) holds every field with its value and
-who decided it ("auto": tagdoc's suggestion, "person"), and nothing else. The same PDF and document give the
-same files, byte for byte. A description is of the whole document: when the PDF changed (optdoc or ocrdoc
-made it anew), every field a person decided stays, and tagdoc's suggestions are made again from the new text.
+The configuration document (`<name>.tagdoc.json`, also inside a PDF; beside a picture only) holds every
+field with its value and who decided it ("auto": tagdoc's suggestion, "person"), and nothing else. The same
+file and document give the same files, byte for byte. A description is of the whole document: when the file
+changed (optdoc or ocrdoc made it anew), every field a person decided stays, and tagdoc's suggestions are
+made again from the new text.
 
 ## Command line
 
@@ -59,10 +99,12 @@ tagdoc about
 tagdoc run befund.pdf --out results/ --kind lab --institution-card labor.vcf --keyword Kalium
 tagdoc run befund.pdf --out results/ --config results/befund.tagdoc.json
 tagdoc edit befund.pdf --out results/ --language de
+tagdoc run foto.heic --out results/ --kind lab --date 2026-03-12
 ```
 
-`run` writes `<name>.pdf` (with the description) and `<name>.tagdoc.json`, or for a signed PDF (or with
-`--sidecar`) the PDF as it came and `<name>.pdf.xmp`. Values given are a person's: `--title`, `--kind`,
+`run` writes the document under the ending it came with (`<name>.pdf`, `<name>.heic` …), with the
+description inside, and `<name>.tagdoc.json`; or, for a signed PDF, a type without a place for a description
+and with `--sidecar`, the file as it came and `<file name>.xmp`. Values given are a person's: `--title`, `--kind`,
 `--date` (ISO 8601), `--creator`, `--institution`, `--authenticator`, `--description`, `--keyword`,
 `--content-language`, `--source`, `--type-code`, `--confidentiality N|R|V`, `--creator-tool`, and people from an
 address book as their cards: `--creator-card`, `--institution-card`, `--authenticator-card`. The answer names

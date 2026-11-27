@@ -1,11 +1,13 @@
-"""What a description leaves behind: the PDF with the description inside (XMP and the
-information dictionary in step, medRDS 7.4), or the PDF as it came and a sidecar
-(``<file name>.xmp``, 7.5); and the configuration document.
+"""What a description leaves behind: the document with the description inside (a PDF: XMP
+and the information dictionary in step; a picture: its XMP and EXIF, medRDS 7.4), or the
+document as it came and a sidecar (``<file name>.xmp``, 7.5); and the configuration
+document.
 
-What the PDF's own metadata held beyond the standard stays (a mark of PDF/A, the
-producer); what the standard defines is replaced.  The PDF carries the configuration
-documents of the steps before it and tagdoc's own, no time, and a file identifier made from
-them, so that the same input and document give the same bytes.
+What the document's own metadata held beyond the standard stays (a PDF's mark of PDF/A
+and its producer, a camera's data); what the standard defines is replaced.  A PDF carries
+the configuration documents of the steps before it and tagdoc's own, no time, and a file
+identifier made from them, so that the same input and document give the same bytes.  A
+picture carries no configuration document: it lies beside it.
 """
 
 from __future__ import annotations
@@ -50,20 +52,23 @@ def described_pdf(source: pymupdf.Document, meta: dict[str, Any], config: dict[s
 
 
 def write(described: Described, folder: str | Path, stem: str | None = None) -> dict[str, Path]:
-    """Write ``<stem>.pdf``, the configuration document ``<stem>.tagdoc.json`` and, where
-    the description goes into one, the sidecar ``<stem>.pdf.xmp`` into ``folder``; nothing
-    anywhere else.  Returns the paths by kind ("document": the described PDF; "config";
-    "sidecar" where there is one).  Raises "same-as-source", "unwritable"."""
+    """Write the document under the ending it came with (``<stem>.pdf``, ``<stem>.jpg``
+    …), the configuration document ``<stem>.tagdoc.json`` and, where the description goes
+    into one, the sidecar ``<file name>.xmp`` into ``folder``; nothing anywhere else.
+    Returns the paths by kind ("document": the described document; "config"; "sidecar"
+    where there is one).  Raises "same-as-source", "unwritable"."""
     target = Path(folder)
     stem = stem or described.source.stem
-    paths = {"document": target / f"{stem}.pdf", "config": target / f"{stem}{SUFFIX}"}
+    suffix = described.source.suffix
+    name = f"{stem}{'.pdf' if suffix.lower() == '.pdf' else suffix}"
+    paths = {"document": target / name, "config": target / f"{stem}{SUFFIX}"}
     if described.sidecar is not None:
-        paths["sidecar"] = target / f"{stem}.pdf.xmp"
+        paths["sidecar"] = target / f"{name}.xmp"
     if paths["document"].resolve() == described.source.resolve():
         raise TagdocError("same-as-source")
     try:
         target.mkdir(parents=True, exist_ok=True)
-        paths["document"].write_bytes(described.pdf)
+        paths["document"].write_bytes(described.document)
         paths["config"].write_bytes(documents.document_bytes(described.config))
         if described.sidecar is not None:
             paths["sidecar"].write_bytes(described.sidecar.encode("utf-8"))

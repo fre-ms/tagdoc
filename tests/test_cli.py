@@ -27,6 +27,8 @@ def test_about(capsys: pytest.CaptureFixture[str]) -> None:
     status, answer = _answer(capsys, ["about"])
     assert status == 0 and answer["made_with"] == f"tagdoc {__version__}"
     assert "lab" in answer["kinds"] and "cards" in answer["fields"]
+    assert answer["interface"] == 3 and answer["places"]["pdf"] == ["xmp", "info"]
+    assert answer["places"]["heic"] == ["xmp", "exif"] and isinstance(answer["heic"], bool)
 
 
 def test_run_with_values_and_a_card(tmp_path: Path, report: Path, card: Path,
@@ -53,8 +55,10 @@ def test_failures_without_paths(tmp_path: Path, report: Path,
     cases = {"bad-field": ["run", str(good), "--date", "gestern"],
              "missing": ["run", str(good), "--creator-card", str(folder / "fehlt.vcf")],
              "usage": ["run", str(good), "--config", str(folder / "x.json"), "--kind", "lab"],
-             "not-pdf": ["run", str(folder / f"{PATIENT}.jpg")]}
-    (folder / f"{PATIENT}.jpg").write_bytes(b"\xff\xd8")
+             "unreadable": ["run", str(folder / f"{PATIENT}.jpg")],
+             "unsupported": ["run", str(folder / f"{PATIENT}.docx")]}
+    (folder / f"{PATIENT}.jpg").write_bytes(b"no picture, whatever its name says")
+    (folder / f"{PATIENT}.docx").write_bytes(b"PK")
     for kind, argv in cases.items():
         status, answer = _answer(capsys, argv)
         assert status == 2 and answer["error"] == kind, (kind, answer)
@@ -74,5 +78,14 @@ def test_edit_self_test_gives_what_run_gives(tmp_path: Path, report: Path) -> No
     edited = run(["edit", str(report), "--out", str(tmp_path / "e"), "--self-test",
                   "--language", "de"])
     ran = run(["run", str(report), "--out", str(tmp_path / "r")])
+    for key in ("document", "config"):
+        assert Path(edited[key]).read_bytes() == Path(ran[key]).read_bytes(), key
+    from tests.test_pictures import reading_of, saved
+
+    photo = saved(tmp_path / "in", "heic")  # a picture goes through the window alike
+    reading_of(photo)
+    edited = run(["edit", str(photo), "--out", str(tmp_path / "pe"), "--self-test"])
+    ran = run(["run", str(photo), "--out", str(tmp_path / "pr")])
+    assert edited["finished"] is True and edited["written"] == ["xmp", "exif"]
     for key in ("document", "config"):
         assert Path(edited[key]).read_bytes() == Path(ran[key]).read_bytes(), key

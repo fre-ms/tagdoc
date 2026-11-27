@@ -337,6 +337,72 @@ def merge_xmp(existing: str | None, meta: dict[str, Any]) -> str:
     return packet.replace(close, f"  </rdf:Description>\n{foreign}\n </rdf:RDF>")
 
 
+# what a packet's properties are read as: the key, how the value is held, the property
+_READ: tuple[tuple[str, str, str, str], ...] = (
+    ("title", "alt", "dc", "title"), ("kind", "first", "dc", "type"),
+    ("creator", "list", "dc", "creator"), ("description", "alt", "dc", "description"),
+    ("subject", "list", "dc", "subject"), ("language", "list", "dc", "language"),
+    ("source", "text", "dc", "source"), ("creatorTool", "text", "xmp", "CreatorTool"),
+    ("date", "text", "xmp", "CreateDate"), ("typeCode", "list", "", "typeCode"),
+    ("institution", "list", "", "institution"), ("authenticator", "text", "", "authenticator"),
+    ("confidentiality", "text", "", "confidentiality"), ("cards", "list", "", "cards"),
+)
+
+
+def parse_xmp(packet: str | None) -> tuple[dict[str, Any], bool]:
+    """What a packet says, by the keys tagdoc writes, and whether it is a description as
+    the standard writes one (it names the standard's own namespace, or says that it
+    conforms to the standard).  A packet that cannot be read says nothing.
+
+    A camera's packet names a moment and a program too (``xmp:CreateDate``,
+    ``xmp:CreatorTool``): whether its date is the clinical date of a document is for the
+    caller to decide, by the second value."""
+    if not packet:
+        return {}, False
+    try:
+        start = packet.index("<x:xmpmeta") if "<x:xmpmeta" in packet else packet.index("<rdf:RDF")
+        close = "</x:xmpmeta>" if "<x:xmpmeta" in packet else "</rdf:RDF>"
+        tree = ET.fromstring(packet[start:packet.index(close, start) + len(close)])
+    except (ValueError, ET.ParseError):
+        return {}, False
+    own = schema()["namespace"]["uri"]
+    found: dict[str, Any] = {}
+    standard = own in packet
+
+    def items(element: ET.Element) -> list[str]:
+        listed = [li.text.strip() for li in element.iter(f"{{{RDF}}}li")
+                  if li.text and li.text.strip()]
+        return listed or ([element.text.strip()] if element.text and element.text.strip() else [])
+
+    def default(element: ET.Element) -> str | None:
+        entries = list(element.iter(f"{{{RDF}}}li"))
+        for li in entries:
+            if li.get(f"{{{XML}}}lang") == "x-default" and li.text and li.text.strip():
+                return li.text.strip()
+        return next(iter(items(element)), None)
+
+    for description in tree.iter(f"{{{RDF}}}Description"):
+        for key, form, prefix, local in _READ:
+            if key in found:
+                continue
+            name = f"{{{NAMESPACES[prefix] if prefix else own}}}{local}"
+            element = description.find(name)
+            value: Any = None
+            if element is not None:
+                value = (default(element) if form == "alt" else items(element) if form == "list"
+                         else next(iter(items(element)), None))
+            elif description.get(name, "").strip():  # written as an attribute
+                value = description.get(name, "").strip()
+                value = [value] if form == "list" else value
+            if value:
+                found[key] = value
+        conforms = description.find(f"{{{NAMESPACES['dcterms']}}}conformsTo")
+        said = (conforms.text if conforms is not None else None) \
+            or description.get(f"{{{NAMESPACES['dcterms']}}}conformsTo") or ""
+        standard = standard or "medrds" in said.lower()
+    return found, standard
+
+
 # -- the information dictionary of a PDF (7.4) --------------------------------------------------
 def pdf_date(date: str) -> str | None:
     """A date of the metadata as a PDF date: ``D:20260314081500+01'00'``."""

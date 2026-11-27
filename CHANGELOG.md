@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.3.0 (2026-11-27)
+
+A picture stays a picture, and says what it is. docrepro forces no file type; tagdoc now describes
+pictures as well as PDFs, in the place each format has for a description. Interface 3;
+`tagdoc-config` version 1 stays.
+
+### Added
+
+- **tagdoc describes pictures**: JPEG, PNG, TIFF, WebP, HEIC and HEIF, GIF, BMP, PNM. The picture
+  is written under the ending it came with, its own data untouched; the configuration document
+  lies beside it.
+- **The description goes into the picture where its format has a place**: the XMP in a JPEG's
+  APP1 segment and a PNG's `iTXt` chunk (as medRDS's reference library writes them, byte for
+  byte), in a TIFF's entry 700, a WebP's chunk `XMP `, a HEIC's item `application/rdf+xml` and a
+  GIF's application extension `XMP Data`. A BMP and a PNM have no place: their description goes
+  into the sidecar `<file name>.xmp`.
+- **EXIF in step** (medRDS 7.4): `ImageDescription` holds the description and `Artist` the names
+  of the authors, in the EXIF of a JPEG, PNG, WebP and HEIC and in the directory of a TIFF, as
+  UTF-8. Everything else a picture says of itself stays where it stands; the bytes of a text that
+  was replaced are set to zero.
+- **A HEIC photo is checked by looking** before what was written is trusted: libheif must show
+  the same pixels and find the description (pillow-heif, the new extra `heic`). Otherwise the
+  photo stays as it came and the description goes into a sidecar.
+- **Reading**: a description a document carries already, as the standard writes one, is suggested
+  again field by field (a PDF's too); a picture's own description and author (XMP, EXIF) and the
+  camera it names are suggested; and for a picture the rules for title, kind, date and language
+  work on the reading ocrdoc laid beside it, where that reading names this very picture.
+- In the answer: `written` (where the description stands: `xmp`, `info`, `exif`, or `sidecar`)
+  and `why_sidecar`; in `about`: `places` (where each type keeps a description) and `heic`.
+
+### Removed
+
+- The kind of error `not-pdf`: a picture is described now. A type tagdoc cannot open is
+  `unsupported` (with `suffix`), as in every tool of docrepro.
+- `Described.pdf` is `Described.document`.
+
 ## 0.2.1 (2026-11-27)
 
 With doccor 0.3.0, which every tool of docrepro names. Nothing a caller relies on changed:

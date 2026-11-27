@@ -1,6 +1,7 @@
 """tagdoc as step 40 of docrepro, through the entry point ``docrepro.steps`` (see
-docrepro's ``steps``): it takes the PDF of the step before (ocrdoc's, with its text) and
-writes the description into it, or beside it into a sidecar.  docrepro does not import
+docrepro's ``steps``): it takes the document of the step before (ocrdoc's PDF with its
+text, or a picture with its reading beside it) and writes the description into it, or
+beside it into a sidecar.  docrepro does not import
 this module's types; it calls the methods its ``Adapter`` names, and :meth:`panel` for its
 window.
 """
@@ -23,8 +24,8 @@ class TagdocAdapter:
 
     def open(self, source: Path, config: dict[str, Any] | None, settings: dict[str, Any],
              scratch: Path) -> Project:
-        """tagdoc's project on the PDF of the step before; the program the document is
-        made with is the one docrepro names (``creator_tool``)."""
+        """tagdoc's project on the document of the step before; the program the document
+        is made with is the one docrepro names (``creator_tool``)."""
         options = Options(sidecar=bool(settings.get("sidecar", False)),
                           creator_tool=settings.get("creator_tool"))
         return Project.open(source, None if config else options, config)

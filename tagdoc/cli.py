@@ -16,12 +16,13 @@ from pathlib import Path
 from typing import Any
 
 from doccor import cli as frame
+from doccor import pictures
 
-from tagdoc import __version__, medrds
+from tagdoc import __version__, formats, medrds
 from tagdoc.errors import TagdocError
 from tagdoc.project import SUFFIX, Options, Project, load_config
 
-INTERFACE = 2
+INTERFACE = 3
 TOOL = "tagdoc"
 # the options that set a field: option name, field, whether it may be given more than once
 _FIELDS: tuple[tuple[str, str, bool], ...] = (
@@ -37,12 +38,17 @@ _CARDS = (("creator_card", "creator", True), ("institution_card", "institution",
 
 
 def _about(args: argparse.Namespace) -> dict[str, Any]:
-    """What tagdoc writes, after which standard, and whether the window can open."""
+    """What tagdoc writes, after which standard, where each type of document keeps a
+    description, and whether the window can open."""
     from tagdoc import gui
 
+    places = {"pdf": ["xmp", "info"]}
+    for suffix in pictures.SUFFIXES:
+        places[suffix.lstrip(".")] = list(formats.places(suffix)) or ["sidecar"]
     return {"version": __version__,
             "standard": f"https://medrds.org/spec/{medrds.standard_version()}",
-            "fields": list(medrds.FIELDS), "kinds": medrds.kinds(), "window": gui.available()}
+            "fields": list(medrds.FIELDS), "kinds": medrds.kinds(), "places": places,
+            "heic": pictures.heic_available(), "window": gui.available()}
 
 
 def _given(args: argparse.Namespace) -> bool:
@@ -59,8 +65,8 @@ def _read_card(path: Path) -> str:
 
 
 def _project(args: argparse.Namespace) -> Project:
-    """The project on the PDF: from its configuration document, or fresh with the values
-    given (a person's).  Both at once is a "usage"."""
+    """The project on the document: from its configuration document, or fresh with the
+    values given (a person's).  Both at once is a "usage"."""
     if args.config is not None:
         if _given(args):
             raise TagdocError("usage")
@@ -92,6 +98,7 @@ def _results(project: Project, args: argparse.Namespace) -> dict[str, Any]:
     paths = output.write(described, _out(args))
     return {**{k: str(v) for k, v in paths.items()},
             "sidecar": str(paths["sidecar"]) if "sidecar" in paths else None,
+            "written": list(described.written), "why_sidecar": described.why_sidecar,
             "signed": project.signed, "rebased": project.rebased,
             "decided": sorted(project.decided), "problems": described.problems}
 
@@ -125,7 +132,8 @@ def _edit(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def _document_options(pr: argparse.ArgumentParser) -> None:
-    pr.add_argument("file", type=Path, help="a PDF")
+    pr.add_argument("file", type=Path,
+                    help="a PDF, or a picture, which stays a picture (about lists the types)")
     pr.add_argument("--out", type=Path, help="folder for the results (default: <file>.tagdoc/)")
     pr.add_argument("--config", type=Path,
                     help="configuration to start from: <name>.tagdoc.json, or a PDF tagdoc wrote")
@@ -150,16 +158,16 @@ def _document_options(pr: argparse.ArgumentParser) -> None:
     pr.add_argument("--date", help="the clinical date, ISO 8601")
     pr.add_argument("--confidentiality", choices=list(medrds.CONFIDENTIALITY))
     pr.add_argument("--sidecar", action="store_true",
-                    help="write the description into a sidecar, not into the PDF")
+                    help="write the description into a sidecar, not into the document")
 
 
 def _parser() -> argparse.ArgumentParser:
     p = frame.Parser(prog=TOOL, description="Describe a document as medRDS says, and write it "
-                                            "into the PDF or a sidecar.")
+                                            "into the PDF or the picture, or a sidecar.")
     p.add_argument("--version", action="version", version=f"{TOOL} {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
     sub.add_parser("about", help="what tagdoc writes, and after which standard")
-    ru = sub.add_parser("run", help="describe a PDF and write the results")
+    ru = sub.add_parser("run", help="describe a PDF or a picture and write the results")
     _document_options(ru)
     ed = sub.add_parser("edit", help="open the window: check and complete the description")
     _document_options(ed)

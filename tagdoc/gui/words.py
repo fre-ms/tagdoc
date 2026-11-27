@@ -16,11 +16,13 @@ WORDS: dict[str, tuple[str, str]] = {  # key: (English, German)
                      "Es wird nichts geschrieben. Das in diesem Fenster Getane verwerfen?"),
     "failed": ("That did not work: {error}", "Das ging nicht: {error}"),
     "describe_help": ("What the document says about itself, as medRDS writes it into the PDF "
-                      "(or into a sidecar). Grey: tagdoc's suggestion from the text; what you "
-                      "change is yours. Filing it (record, versions) is the records app's.",
-                      "Was das Dokument über sich sagt, wie medRDS es ins PDF schreibt (oder in "
-                      "eine Begleitdatei). Grau: tagdocs Vorschlag aus dem Text; was Sie ändern, "
-                      "ist Ihres. Das Ablegen (Akte, Fassungen) macht das Aktenprogramm."),
+                      "or the picture (or into a sidecar). Grey: tagdoc's suggestion, from the "
+                      "text and from what the file says already; what you change is yours. "
+                      "Filing it (record, versions) is the records app's.",
+                      "Was das Dokument über sich sagt, wie medRDS es ins PDF oder ins Bild "
+                      "schreibt (oder in eine Begleitdatei). Grau: tagdocs Vorschlag, aus dem "
+                      "Text und aus dem, was die Datei schon sagt; was Sie ändern, ist Ihres. "
+                      "Das Ablegen (Akte, Fassungen) macht das Aktenprogramm."),
     "field_title": ("Title", "Titel"),
     "field_kind": ("Kind", "Art"),
     "field_date": ("Clinical date", "Klinisches Datum"),
@@ -52,6 +54,10 @@ WORDS: dict[str, tuple[str, str]] = {  # key: (English, German)
     "sidecar_note": ("This PDF is signed: it stays as it is, the description goes into a "
                      "sidecar.", "Dieses PDF ist signiert: es bleibt, wie es ist; die "
                      "Beschreibung kommt in eine Begleitdatei."),
+    "no_place_note": ("A picture of this type has no place for a description: it stays as it "
+                      "is, the description goes into a sidecar.",
+                      "Ein Bild dieses Typs hat keinen Platz für eine Beschreibung: es bleibt, "
+                      "wie es ist; die Beschreibung kommt in eine Begleitdatei."),
 }
 
 _words.register(WORDS)

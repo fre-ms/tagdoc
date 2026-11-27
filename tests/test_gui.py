@@ -61,3 +61,34 @@ def test_the_form(app: QApplication, report: Path) -> None:
     finally:
         panel.close()
         project.close()
+
+
+def test_the_form_on_a_picture(app: QApplication, tmp_path: Path) -> None:
+    """The form is the same for a picture: what was read on it and what it says of itself
+    are suggested; a type without a place for a description says that it goes beside it."""
+    from tests.test_formats import drawing
+    from tests.test_pictures import reading_of, saved
+
+    photo = saved(tmp_path, "jpg")
+    reading_of(photo)
+    project = Project.open(photo)
+    panel = DescribePanel(project, Words("de"))
+    try:
+        assert panel.edits["title"].text() == "Laborbefund"
+        assert panel.edits["kind"].currentData() == "lab"
+        assert "Begleitdatei" not in panel.note.text()
+        panel.edits["title"].setText("Kalium erhöht")
+        panel.commit()
+        assert project.value("title") == "Kalium erhöht" and project.by("title") == "person"
+    finally:
+        panel.close()
+        project.close()
+    plain = tmp_path / "scan.bmp"
+    drawing().save(plain, format="BMP")
+    project = Project.open(plain)
+    panel = DescribePanel(project, Words("de"))
+    try:
+        assert "keinen Platz" in panel.note.text() and "Begleitdatei" in panel.note.text()
+    finally:
+        panel.close()
+        project.close()

@@ -118,7 +118,11 @@ def test_wrong_values_and_what_is_missing(tmp_path: Path) -> None:
     with pytest.raises(TagdocError) as caught:
         Project.open(tmp_path / "foto.jpg")
     assert caught.value.kind == "missing"
-    (tmp_path / "foto.jpg").write_bytes(b"\xff\xd8")
+    (tmp_path / "foto.jpg").write_bytes(b"no picture, whatever its name says")
     with pytest.raises(TagdocError) as caught:
         Project.open(tmp_path / "foto.jpg")
-    assert caught.value.kind == "not-pdf"
+    assert caught.value.kind == "unreadable"
+    (tmp_path / "brief.docx").write_bytes(b"PK")
+    with pytest.raises(TagdocError) as caught:  # neither a PDF nor a picture
+        Project.open(tmp_path / "brief.docx")
+    assert caught.value.kind == "unsupported" and caught.value.details == {"suffix": ".docx"}
