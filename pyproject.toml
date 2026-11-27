@@ -1,6 +1,6 @@
 [project]
 name = "tagdoc"
-version = "0.3.0"
+version = "0.4.0"
 description = "Describes a document: its title, kind, date, authors and the people it names (with copies of their cards), written as medRDS says into the PDF (XMP and the information dictionary), into a picture (XMP and EXIF in JPEG, PNG, TIFF, WebP, HEIC; XMP in GIF) or into a sidecar; every decision reproducible."
 readme = "README.md"
 requires-python = ">=3.12"

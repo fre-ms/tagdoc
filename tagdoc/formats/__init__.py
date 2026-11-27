@@ -26,6 +26,7 @@ wherever it stands and the texts of its EXIF (:func:`held`).
 
 from __future__ import annotations
 
+import struct
 from dataclasses import dataclass, field
 
 from tagdoc import exif
@@ -61,11 +62,30 @@ def places(suffix: str) -> tuple[str, ...]:
 
 @dataclass
 class Held:
-    """What a picture says of itself: its XMP packet (None without one) and the texts of
-    its EXIF by tag (:data:`tagdoc.exif.TEXT`)."""
+    """What a picture says of itself: its XMP packet (None without one), the texts of its
+    EXIF by tag (:data:`tagdoc.exif.TEXT`), and when it was taken, as its EXIF says (ISO
+    8601; None where it says nothing)."""
 
     packet: str | None = None
     texts: dict[int, str] = field(default_factory=dict)
+    taken: str | None = None
+
+
+def packet_of(data: bytes, suffix: str) -> str | None:
+    """The XMP packet of a picture as text, where its format keeps it (a TIFF's entry 700,
+    a HEIC's item), else wherever it stands; as the standard's library reads it."""
+    form = FORMATS.get(suffix.lower())
+    found: bytes | None = None
+    if form == TIFF and tiff.is_tiff(data):
+        try:
+            found = exif.packet(data)
+        except (exif.NotExif, ValueError, IndexError, struct.error):
+            found = None
+    elif form == HEIF:
+        found = heif.packet_of(data)
+    if found:
+        return found.decode("utf-8", errors="replace")
+    return find_packet(data)
 
 
 def _block(data: bytes, form: str) -> bytes | None:
@@ -84,15 +104,16 @@ def _block(data: bytes, form: str) -> bytes | None:
 def held(data: bytes, suffix: str) -> Held:
     """What the picture says of itself; nothing for what is no picture of its type."""
     form = FORMATS.get(suffix.lower())
-    found = Held(find_packet(data))
+    found = Held(packet_of(data, suffix))
     if form is None or not _IS[form](data):
         return found
     try:
         block = _block(data, form)
         if block is not None:
             found.texts = exif.read(block)
-    except (NoPlace, exif.NotExif, ValueError, IndexError):
-        found.texts = {}
+            found.taken = exif.taken(block)
+    except (NoPlace, exif.NotExif, ValueError, IndexError, struct.error):
+        found.texts, found.taken = {}, None
     return found
 
 
@@ -149,5 +170,5 @@ def written(data: bytes, suffix: str, packet: str,
         raise NoPlace("not-" + form) from e
 
 
-__all__ = ["FORMATS", "PLACES", "Held", "NoPlace", "find_packet", "genuine", "held", "places",
-           "written"]
+__all__ = ["FORMATS", "PLACES", "Held", "NoPlace", "find_packet", "genuine", "held", "packet_of",
+           "places", "written"]

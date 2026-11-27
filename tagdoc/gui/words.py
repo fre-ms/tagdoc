@@ -47,6 +47,17 @@ WORDS: dict[str, tuple[str, str]] = {  # key: (English, German)
     "restore_all": ("tagdoc's suggestions again", "Wieder tagdocs Vorschläge"),
     "date_tip": ("ISO 8601: 2026-03-12, or 2026-03-12T10:00:00+01:00",
                  "ISO 8601: 2026-03-12 oder 2026-03-12T10:00:00+01:00"),
+    "camera_date": ("The camera's date", "Datum der Kamera"),
+    "camera_never": ("never the clinical date", "nie das klinische Datum"),
+    "camera_missing": ("where the text names no date", "wo der Text kein Datum nennt"),
+    "camera_first": ("the clinical date (before the text's)",
+                     "das klinische Datum (vor dem des Textes)"),
+    "camera_tip": ("When the photo was taken. For a photographed report it is not the clinical "
+                   "date (the report is older); for the photo of a finding it is.",
+                   "Wann das Foto aufgenommen wurde. Bei einem fotografierten Befund ist es nicht "
+                   "das klinische Datum (der Befund ist älter), beim Foto eines Befunds am Körper "
+                   "schon."),
+    "camera_none": ("(the document names none)", "(das Dokument nennt keines)"),
     "missing": ("Still missing: {fields}", "Fehlt noch: {fields}"),
     "complete": ("Complete as medRDS requires.", "Vollständig, wie medRDS es verlangt."),
     "card_problem": ("Card: {why}", "Karte: {why}"),

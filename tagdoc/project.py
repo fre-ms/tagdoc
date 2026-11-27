@@ -28,14 +28,24 @@ the person asks for one.
 itself as the standard writes it (a description it carries already: every field of it);
 what its text says, by rules (:mod:`tagdoc.describe`; the text of a PDF, and for a
 picture the reading ocrdoc laid beside it); and what a picture says of itself otherwise
-(its XMP and EXIF: a description, who made it, keywords, the camera or program).  A
-camera's date is never taken for the clinical date: it says when the photo was taken.
+(its XMP and EXIF: a description, who made it, keywords, the camera or program).
+
+**The camera's date** says when a photo was taken.  Whether it is the clinical date is the
+person's choice (``Options.camera_date``): for a photographed laboratory report it is not
+(the report is older than its photo), for the photo of a skin finding it is.  By default
+it is suggested nowhere (``never``); ``missing`` suggests it where the text names no date,
+``first`` before the date the text names.  It is read from the picture (its EXIF, else
+its XMP), from the pictures a PDF holds on its first page (typdoc binds a photo byte for
+byte), and from the files the document was made from where the caller names them
+(:attr:`Project.originals`: docrepro names its original, since optdoc's prepared page
+carries no camera data).
 """
 
 from __future__ import annotations
 
 import json
 import re
+import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
@@ -65,14 +75,20 @@ RULES: dict[str, str] = {
 }
 
 
+CAMERA_DATE = ("never", "missing", "first")  # when the camera's date is the clinical date
+
+
 @dataclass
 class Options:
     """The settings: the description into a sidecar rather than into the document
-    (``sidecar``), and the program the document is made with (``creator_tool``; docrepro
-    gives its own; else tagdoc suggests what the document names)."""
+    (``sidecar``), the program the document is made with (``creator_tool``; docrepro gives
+    its own; else tagdoc suggests what the document names), and when the date a camera
+    gives is suggested as the clinical date (``camera_date``: ``never``, ``missing``
+    where the text names none, ``first`` before the text's)."""
 
     sidecar: bool = False
     creator_tool: str | None = None
+    camera_date: str = "never"
 
     def as_dict(self) -> dict[str, Any]:
         return dict(self.__dict__)
@@ -82,11 +98,14 @@ class Options:
         if not isinstance(d, dict):
             raise TagdocError("bad-config", reason="field")
         options = cls()
-        for name, kinds in (("sidecar", (bool,)), ("creator_tool", (str, type(None)))):
+        for name, kinds in (("sidecar", (bool,)), ("creator_tool", (str, type(None))),
+                            ("camera_date", (str,))):
             if name in d:
                 if not isinstance(d[name], kinds):
                     raise TagdocError("bad-config", reason="field")
                 setattr(options, name, d[name])
+        if options.camera_date not in CAMERA_DATE:
+            raise TagdocError("bad-config", reason="field")
         return options
 
 
@@ -167,6 +186,48 @@ def _reading(source: Path, sha256: str) -> dict[str, Any] | None:
     return reading if isinstance(named, dict) and named.get("sha256") == sha256 else None
 
 
+_MOMENTS = (("http://ns.adobe.com/exif/1.0/", "DateTimeOriginal"),
+            ("http://ns.adobe.com/photoshop/1.0/", "DateCreated"),
+            ("http://ns.adobe.com/xap/1.0/", "CreateDate"))
+
+
+def _xmp_taken(packet: str | None) -> str | None:
+    """When a picture was taken, as a camera's XMP says (``exif:DateTimeOriginal``, else
+    ``photoshop:DateCreated``, else ``xmp:CreateDate``): with its time where the offset
+    from UTC is given, else the date alone."""
+    if not packet:
+        return None
+    try:
+        start = packet.index("<x:xmpmeta") if "<x:xmpmeta" in packet else packet.index("<rdf:RDF")
+        close = "</x:xmpmeta>" if "<x:xmpmeta" in packet else "</rdf:RDF>"
+        tree = ET.fromstring(packet[start:packet.index(close, start) + len(close)])
+    except (ValueError, ET.ParseError):
+        return None
+    for uri, local in _MOMENTS:
+        name = f"{{{uri}}}{local}"
+        for description in tree.iter(f"{{{medrds.RDF}}}Description"):
+            element = description.find(name)
+            said = (element.text if element is not None else None) or description.get(name)
+            if said and said.strip():
+                return _as_date(said.strip())
+    return None
+
+
+def _as_date(said: str) -> str | None:
+    """A moment of XMP as the metadata keep a date: as it is where it has an offset from
+    UTC or no time, else the date alone."""
+    if medrds.pdf_date(said) is not None:
+        return said
+    date = said[:10]
+    return date if medrds.pdf_date(date) is not None else None
+
+
+def _taken_in(data: bytes, suffix: str) -> str | None:
+    """When the picture in a file was taken: as its EXIF says, else its XMP."""
+    said = formats.held(data, suffix)
+    return said.taken or _xmp_taken(said.packet)
+
+
 def _device(texts: dict[int, str]) -> str | None:
     """The camera or program a picture's EXIF names: the maker and the model, with the
     program in brackets; else the program alone."""
@@ -176,6 +237,32 @@ def _device(texts: dict[int, str]) -> str | None:
     if device and program:
         return f"{device} ({program})"
     return device or program or None
+
+
+def _pictures_on(doc: pymupdf.Document) -> list[tuple[bytes, str]]:
+    """The pictures on the first page of a PDF as files, where they can be had as they
+    came: a JPEG that is the page's image (its stream is the file), and a file associated
+    with the page (how typdoc binds a picture that is no JPEG)."""
+    page = doc[0]
+    found: list[tuple[bytes, str]] = []
+    for image in page.get_images(full=True):
+        try:
+            if doc.xref_get_key(image[0], "Filter")[1] == "/DCTDecode":
+                found.append((doc.xref_stream_raw(image[0]), ".jpg"))
+        except Exception:  # a stream MuPDF cannot give: nothing of it
+            continue
+    kind, listed = doc.xref_get_key(page.xref, "AF")
+    if kind == "array":
+        for ref in re.findall(r"(\d+) 0 R", listed):
+            try:
+                name = doc.xref_get_key(int(ref), "UF")[1] or doc.xref_get_key(int(ref), "F")[1]
+                kind_file, file_ref = doc.xref_get_key(int(ref), "EF/F")
+                if kind_file == "xref":
+                    found.append((doc.xref_stream(int(file_ref.split()[0])),
+                                  Path(name.strip("()")).suffix))
+            except Exception:
+                continue
+    return found
 
 
 class Project:
@@ -192,6 +279,9 @@ class Project:
         self.sha256 = sha256
         self.size = size
         self.options = options
+        # the files the document was made from, whose camera data count as well (docrepro
+        # names its original); no setting: the configuration document holds what was found
+        self.originals: list[Path] = []
         self.decided: dict[str, Any] = {}  # a person's values, by field
         self._suggested: dict[str, Any] | None = None
         self.rebased = False
@@ -287,6 +377,9 @@ class Project:
                     if value and name not in found:
                         found[name] = value
                 tool = said.get("creatorTool") or _device(texts)
+            moment = self.camera_moment() if self.options.camera_date != "never" else None
+            if moment and (self.options.camera_date == "first" or "date" not in found):
+                found["date"] = moment
             if standard:  # a description as the standard writes it: every field of it
                 found.update({k: v for k, v in said.items() if k in medrds.FIELDS})
             tool = self.options.creator_tool or found.get("creatorTool") or tool
@@ -294,6 +387,36 @@ class Project:
                 found["creatorTool"] = tool
             self._suggested = {k: v for k, v in found.items() if _fits(k, v)}
         return dict(self._suggested)
+
+    def camera_moment(self) -> str | None:
+        """When the picture was taken, as a camera says it (see the module): the picture's
+        own EXIF or XMP; for a PDF, the pictures on its first page; else the files the
+        document was made from (:attr:`originals`)."""
+        if self.picture:
+            moment = _taken_in(self.data, self.source.suffix)
+            if moment:
+                return moment
+        elif self.doc is not None and len(self.doc):
+            for data, suffix in _pictures_on(self.doc):
+                moment = _taken_in(data, suffix)
+                if moment:
+                    return moment
+        for original in self.originals:
+            try:
+                moment = _taken_in(Path(original).read_bytes(), Path(original).suffix)
+            except OSError:
+                continue
+            if moment:
+                return moment
+        return None
+
+    def set_camera_date(self, choice: str) -> None:
+        """When the camera's date is suggested as the clinical date (``never``, ``missing``,
+        ``first``); tagdoc's suggestions are made again, a person's values stay."""
+        if choice not in CAMERA_DATE:
+            raise TagdocError("bad-field", field="camera_date", rule="never, missing or first")
+        self.options.camera_date = choice
+        self._suggested = None
 
     def value(self, name: str) -> Any:
         """The value of a field: as a person decided it, else as suggested."""

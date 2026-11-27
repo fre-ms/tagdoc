@@ -92,3 +92,25 @@ def test_the_form_on_a_picture(app: QApplication, tmp_path: Path) -> None:
     finally:
         panel.close()
         project.close()
+
+
+def test_the_camera_date_in_the_form(app: QApplication, tmp_path: Path) -> None:
+    from tests.test_pictures import _taken, reading_of
+
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(_taken("jpg"))
+    reading_of(photo)
+    project = Project.open(photo)
+    panel = DescribePanel(project, Words("de"))
+    try:
+        assert panel.edits["date"].text() == "2026-03-12"
+        assert panel.camera.currentData() == "never"
+        assert panel.camera_said.text() == "2026-03-14T08:15:00+01:00"
+        panel.edits["title"].setText("Mein Titel")
+        panel.camera.setCurrentIndex(panel.camera.findData("first"))
+        assert project.options.camera_date == "first"
+        assert panel.edits["date"].text() == "2026-03-14T08:15:00+01:00"
+        assert project.by("date") == "auto" and project.value("title") == "Mein Titel"
+    finally:
+        panel.close()
+        project.close()

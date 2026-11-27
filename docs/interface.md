@@ -1,6 +1,6 @@
 # tagdoc's command line as an interface
 
-**Interface 3**, since tagdoc 0.3.0. One JSON object on standard output for every command, success or failure,
+**Interface 3**, since tagdoc 0.3.0 (this description: tagdoc 0.4.0). One JSON object on standard output for every command, success or failure,
 with `interface` and `made_with`; exit status 0 or 2; no path or content of a document in any answer or
 message; never the network. Within one interface, new fields and kinds of error may come.
 
@@ -15,7 +15,7 @@ error `not-pdf` is gone (`unsupported` names a type tagdoc cannot open). New in 
 ## `about`
 
 ```json
-{"interface": 3, "made_with": "tagdoc 0.3.0", "version": "0.3.0",
+{"interface": 3, "made_with": "tagdoc 0.4.0", "version": "0.4.0",
  "standard": "https://medrds.org/spec/0.15",
  "fields": ["title", "kind", "creator", "description", "subject", "language", "source", "creatorTool",
             "date", "typeCode", "institution", "authenticator", "confidentiality", "cards"],
@@ -37,13 +37,18 @@ The picture's own data are never touched, and the same picture and description g
 | document | XMP | in step with it | |
 |---|---|---|---|
 | PDF | the metadata stream of the catalogue | the information dictionary (`info`) | a signed PDF stays as it is: sidecar |
-| JPEG | an APP1 segment | EXIF `ImageDescription`, `Artist` | as medRDS's reference library writes the XMP, byte for byte |
-| PNG | the chunk `iTXt` `XML:com.adobe.xmp` | the chunk `eXIf` | as the reference library writes the XMP, byte for byte |
+| JPEG | an APP1 segment | EXIF `ImageDescription`, `Artist` | |
+| PNG | the chunk `iTXt` `XML:com.adobe.xmp` | the chunk `eXIf` | |
 | TIFF | entry 700 of the first directory | entries 270 and 315 of it | every page stays; no BigTIFF |
 | WebP | the chunk `XMP ` | the chunk `EXIF` | a file in the simple format gets the header of the extended one |
 | HEIC, HEIF | an item `application/rdf+xml` | the item `Exif` | checked by looking before it is trusted (below) |
 | GIF | the application extension `XMP Data` | (a GIF has no EXIF) | |
 | BMP, PNM | no place | | sidecar `<file name>.xmp` |
+
+These are the places medRDS names (7.4, from medRDS 0.15.1), and **tagdoc writes them as the standard's
+reference library does, byte for byte, in every format**: the tests write the same pictures with both, in
+every layout of a HEIC file tried, and compare the bytes. A TIFF's XMP is read from entry 700 and a HEIC's
+from its item, as the library reads them; in the other formats the packet is found wherever it stands.
 
 **In step** are the two texts EXIF has for what a description says: `ImageDescription` holds the description
 and `Artist` the names of the authors (medRDS 7.4). They are replaced, and taken away where the description
@@ -62,16 +67,14 @@ file only when it reads the table in full, and trusts the result only when libhe
 shows the very same pixels and finds the description in it. Otherwise the photo stays as it came and the
 description goes into a sidecar; `why_sidecar` says so.
 
-**medRDS names fewer places than tagdoc writes.** The standard (0.15, 7.4) names the place for PDF, JPEG and
-PNG, and a sidecar for HEIC "until this standard names the place in the file"; TIFF, WebP and GIF it does not
-name. tagdoc writes each format's own place for XMP and EXIF. The standard's reference library finds the
-description in all of them (it looks for the packet wherever it stands; the tests let it read every type).
-`--sidecar` keeps any document as it came.
+Before what was written into a HEIC file is trusted, it is read back as the reference library reads it:
+every item there was holds the very bytes it held. `--sidecar` keeps any document as it came.
 
 ## `run` and `edit`
 
 ```
 tagdoc run  <file> --out <folder> [--config <file.tagdoc.json | file.pdf>] [values] [--sidecar]
+    [--camera-date never|missing|first] [--original <file>]…
 tagdoc edit <file> --out <folder> [--config …] [values] [--language de|en]
 ```
 
@@ -83,11 +86,12 @@ Values (each a person's decision): `--title`, `--kind <kind>`, `--date <ISO 8601
 `--institution <body>` (repeatable), `--authenticator <person>`, `--creator-card`, `--institution-card`,
 `--authenticator-card <file.vcf>` (repeatable for the first two), `--description`, `--keyword` (repeatable),
 `--content-language <BCP 47>` (repeatable), `--source`, `--type-code <system|code>` (repeatable),
-`--confidentiality N|R|V`, `--creator-tool`. With `--config` the document decides; a value beside it is a
-`usage` error.
+`--confidentiality N|R|V`, `--creator-tool`. Settings: `--sidecar`, `--camera-date` (below). With `--config`
+the document decides; a value or a setting beside it is a `usage` error. `--original` is no setting: it names
+a file the document was made from, whose camera data count as well.
 
 ```json
-{"interface": 3, "made_with": "tagdoc 0.3.0",
+{"interface": 3, "made_with": "tagdoc 0.4.0",
  "document": "<folder>/<stem>.jpg", "config": "<folder>/<stem>.tagdoc.json", "sidecar": null,
  "written": ["xmp", "exif"], "why_sidecar": null,
  "signed": false, "rebased": false, "decided": ["institution", "kind"],
@@ -115,7 +119,17 @@ as the standard writes one (every field of it); what its text says, by rules (a 
 clinical date, the language: from the text of a PDF, and for a picture from the reading ocrdoc laid beside
 it, `<stem>.reading.json`, where that reading names this very picture by its SHA-256); and what a picture
 says of itself otherwise (a description and who made it, from its XMP or EXIF; the camera or program it
-names). A camera's date is never taken for the clinical date: it says when the photo was taken.
+names).
+
+**The camera's date** says when a photo was taken. Whether it is the clinical date is the person's choice,
+`--camera-date` (in the configuration document `options.camera_date`): `never` (the default) suggests it
+nowhere, `missing` where the text names no date, `first` before the date the text names. For a photographed
+laboratory report it is not the clinical date (the report is older than its photo); for the photo of a skin
+finding it is. tagdoc reads it from the picture (EXIF `DateTimeOriginal` with its offset, else `DateTime`;
+else its XMP: `exif:DateTimeOriginal`, `photoshop:DateCreated`, `xmp:CreateDate`), from the pictures a PDF
+holds on its first page as they came (typdoc binds a photo so), and from the files named with `--original`
+(the photo a PDF was made of; docrepro names its originals). A moment whose offset from UTC is not said is
+taken as its date alone, since a time without one names no moment.
 
 `rebased` is true where the configuration document was made on another input: the
 person's fields stayed, the suggestions were made again. `problems`: required fields still missing
@@ -126,10 +140,10 @@ later* `{"config": …, "finished": false}`; *Cancel* is the error `cancelled`.
 ## The configuration document: `tagdoc-config`, version 1
 
 ```json
-{"format": "tagdoc-config", "version": 1, "made_with": "tagdoc 0.3.0",
+{"format": "tagdoc-config", "version": 1, "made_with": "tagdoc 0.4.0",
  "standard": "https://medrds.org/spec/0.15",
  "input": {"sha256": "…", "bytes": 245678, "suffix": ".pdf"},
- "options": {"sidecar": false, "creator_tool": "docrepro 0.1.0"},
+ "options": {"sidecar": false, "creator_tool": "docrepro 0.9.0", "camera_date": "never"},
  "fields": {"title": {"value": "Laborbefund", "by": "auto"},
             "institution": {"value": ["Labor Muster GmbH <mailto:befunde@labor.example> <urn:uuid:…>"],
                             "by": "person"},

@@ -251,3 +251,123 @@ def test_a_picture_on_the_command_line(tmp_path: Path, capsys: pytest.CaptureFix
     assert about["places"]["pdf"] == ["xmp", "info"] and about["places"]["jpg"] == ["xmp", "exif"]
     assert about["places"]["gif"] == ["xmp"] and about["places"]["bmp"] == ["sidecar"]
     assert about["heic"] is True and set(about["places"]) > {"heic", "tiff", "webp", "png", "pnm"}
+
+
+def _taken(ending: str, moment: str = "2026:03:14 08:15:00", offset: str | None = "+01:00",
+           **options: object) -> bytes:
+    """An invented photo whose EXIF says when it was taken."""
+    from PIL import Image
+
+    if ending == "tiff":  # a scanner says it in the main directory, without an offset
+        return picture(ending, False, tiffinfo={0x010F: "Beispielscan", 306: moment}, **options)
+    said = Image.Exif()
+    said[0x010F] = "Beispielfon"
+    details = said.get_ifd(0x8769)
+    details[0x9003] = moment
+    if offset:
+        details[0x9011] = offset
+    return picture(ending, False, exif=said, **options)
+
+
+@pytest.mark.parametrize("ending", ("jpg", "png", "tiff", "webp", "heic"))
+def test_the_camera_date_is_the_persons_choice(tmp_path: Path, ending: str) -> None:
+    """When a photo was taken is the clinical date of the photo of a finding, not that of a
+    photographed report: by default it is suggested nowhere; where chosen, where the text
+    names no date, or before the text's.  The choice is a setting the configuration holds."""
+    source = tmp_path / "in" / f"foto.{ending}"
+    source.parent.mkdir()
+    source.write_bytes(_taken(ending))
+    reading_of(source)  # its text names 12 March 2026
+    taken = "2026-03-14" if ending == "tiff" else "2026-03-14T08:15:00+01:00"
+    expected = {"never": "2026-03-12", "missing": "2026-03-12", "first": taken}
+    for choice, date in expected.items():
+        project = Project.open(source, Options(camera_date=choice))
+        try:
+            assert project.camera_moment() == taken
+            assert project.value("date") == date, choice
+            config = project.config()
+        finally:
+            project.close()
+        assert config["options"]["camera_date"] == choice
+        again = Project.open(source, config=config)
+        try:
+            assert again.value("date") == date and again.options.camera_date == choice
+        finally:
+            again.close()
+    (tmp_path / "in" / "foto.reading.json").unlink()  # no text: no date of its own
+    for choice, date in (("never", None), ("missing", taken)):
+        project = Project.open(source, Options(camera_date=choice))
+        try:
+            assert project.value("date") == date, choice
+        finally:
+            project.close()
+
+
+def test_where_the_camera_date_comes_from(tmp_path: Path) -> None:
+    """A moment without an offset from UTC is a date; a camera's XMP says it where its EXIF
+    does not; a PDF that holds the photo as it came (as typdoc binds it) says it; a PDF that
+    holds no such photo says it through the file it was made from."""
+    import pymupdf
+
+    plain = tmp_path / "ohne.jpg"
+    plain.write_bytes(_taken("jpg", offset=None))
+    project = Project.open(plain)
+    try:
+        assert project.camera_moment() == "2026-03-14"
+    finally:
+        project.close()
+    packet = ('<x:xmpmeta xmlns:x="adobe:ns:meta/"><rdf:RDF xmlns:rdf="' + medrds.RDF + '">'
+              '<rdf:Description rdf:about="" xmlns:photoshop="http://ns.adobe.com/photoshop/1.0/"'
+              ' photoshop:DateCreated="2026-02-01T10:00:00+01:00"/></rdf:RDF></x:xmpmeta>')
+    xmp = tmp_path / "xmp.png"
+    xmp.write_bytes(formats.written(picture("png", False), ".png", packet, {})[0])
+    project = Project.open(xmp)
+    try:
+        assert project.camera_moment() == "2026-02-01T10:00:00+01:00"
+    finally:
+        project.close()
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(_taken("jpg"))
+    bound = tmp_path / "gebunden.pdf"
+    with pymupdf.open() as doc:  # the photo as the image of its page, byte for byte
+        page = doc.new_page(width=595, height=842)
+        page.insert_image(page.rect, stream=photo.read_bytes())
+        doc.save(bound)
+    project = Project.open(bound, Options(camera_date="first"))
+    try:
+        assert project.camera_moment() == "2026-03-14T08:15:00+01:00"
+        assert project.value("date") == "2026-03-14T08:15:00+01:00"
+    finally:
+        project.close()
+    from tests.conftest import make_pdf
+
+    prepared = make_pdf(tmp_path / "aufbereitet.pdf")
+    project = Project.open(prepared, Options(camera_date="first"))
+    try:
+        assert project.camera_moment() is None and project.value("date") == "2026-03-12"
+        project.originals = [photo]
+        project.set_camera_date("first")
+        assert project.value("date") == "2026-03-14T08:15:00+01:00"
+    finally:
+        project.close()
+    with pytest.raises(Exception) as caught:
+        Options.from_dict({"camera_date": "sometimes"})
+    assert caught.value.kind == "bad-config"  # type: ignore[attr-defined]
+
+
+def test_the_camera_date_on_the_command_line(tmp_path: Path,
+                                             capsys: pytest.CaptureFixture[str]) -> None:
+    from tests.conftest import make_pdf
+
+    photo = tmp_path / "foto.jpg"
+    photo.write_bytes(_taken("jpg"))
+    prepared = make_pdf(tmp_path / "befund.pdf")
+    assert main(["run", str(prepared), "--out", str(tmp_path / "out"), "--camera-date", "first",
+                 "--original", str(photo)]) == 0
+    answer = json.loads(capsys.readouterr().out)
+    config = json.loads(Path(answer["config"]).read_text(encoding="utf-8"))
+    assert config["fields"]["date"]["value"] == "2026-03-14T08:15:00+01:00"
+    assert config["options"]["camera_date"] == "first"
+    assert main(["run", str(prepared), "--out", str(tmp_path / "x"), "--config", answer["config"],
+                 "--camera-date", "never"]) == 2  # beside the configuration, a setting is usage
+    assert json.loads(capsys.readouterr().out)["error"] == "usage"

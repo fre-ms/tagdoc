@@ -20,7 +20,7 @@ from doccor import pictures
 
 from tagdoc import __version__, formats, medrds
 from tagdoc.errors import TagdocError
-from tagdoc.project import SUFFIX, Options, Project, load_config
+from tagdoc.project import CAMERA_DATE, SUFFIX, Options, Project, load_config
 
 INTERFACE = 3
 TOOL = "tagdoc"
@@ -54,7 +54,7 @@ def _about(args: argparse.Namespace) -> dict[str, Any]:
 def _given(args: argparse.Namespace) -> bool:
     """True when the command line sets a field or a setting."""
     return any(getattr(args, name) not in (None, [], False)
-               for name in [n for n, _f, _m in _FIELDS + _CARDS] + ["sidecar"])
+               for name in [n for n, _f, _m in _FIELDS + _CARDS] + ["sidecar", "camera_date"])
 
 
 def _read_card(path: Path) -> str:
@@ -70,8 +70,12 @@ def _project(args: argparse.Namespace) -> Project:
     if args.config is not None:
         if _given(args):
             raise TagdocError("usage")
-        return Project.open(args.file, config=load_config(args.config))
-    project = Project.open(args.file, Options(sidecar=args.sidecar))
+        project = Project.open(args.file, config=load_config(args.config))
+        project.originals = list(args.original or [])
+        return project
+    project = Project.open(args.file, Options(sidecar=args.sidecar,
+                                              camera_date=args.camera_date or "never"))
+    project.originals = list(args.original or [])
     try:
         for option, name, _many in _FIELDS:
             value = getattr(args, option)
@@ -159,6 +163,12 @@ def _document_options(pr: argparse.ArgumentParser) -> None:
     pr.add_argument("--confidentiality", choices=list(medrds.CONFIDENTIALITY))
     pr.add_argument("--sidecar", action="store_true",
                     help="write the description into a sidecar, not into the document")
+    pr.add_argument("--camera-date", choices=list(CAMERA_DATE),
+                    help="the date a camera gives as the clinical date: never (default), "
+                         "where the text names none (missing), or before the text's (first)")
+    pr.add_argument("--original", action="append", type=Path,
+                    help="a file the document was made from (the photo): its camera data "
+                         "count as well; may be given more than once")
 
 
 def _parser() -> argparse.ArgumentParser:

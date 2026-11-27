@@ -403,3 +403,59 @@ def test_a_heic_as_other_programs_lay_it_out(layout: dict, with_exif: bool) -> N
                          {exif.DESCRIPTION: None, exif.ARTIST: None})
     assert pixels(again) == pixels(data) and b"Befund des Labors" not in again
     assert again.count(b"<x:xmpmeta") == 1
+
+
+
+def _variants() -> dict[str, tuple[str, bytes]]:
+    """Pictures of every type in the ways they come, for the comparison with the library."""
+    cases = {}
+    for ending in SAVE:
+        for with_exif in (True, False):
+            kind = "exif" if with_exif else "plain"
+            cases[f"{ending}-{kind}"] = (ending, picture(ending, with_exif))
+    cases["webp-simple"] = ("webp", picture("webp", False, lossless=True))
+    layouts: dict[str, dict] = {
+        "v1": {"version": 1}, "v2-8": {"version": 2, "offset_size": 8},
+        "no-base": {"version": 1, "base_size": 0}, "meta-last": {"meta_last": True},
+        "open": {"open_ended": True}, "idat": {"version": 1, "in_list": True}}
+    for name, layout in layouts.items():
+        heic = picture("heic", True, drawing(320, 240))
+        cases[f"heic-{name}"] = ("heic", _heic_as(heic, **layout))
+    return cases
+
+
+@needs_medrds
+def test_the_same_bytes_as_the_library_in_every_format(tmp_path: Path) -> None:
+    """tagdoc and the standard's reference library write a description into a picture of
+    every type, in every layout tried, and give the very same bytes; and the description
+    written again over the first, too."""
+    import json
+
+    names = "; ".join(medrds.parse_person(c)[0] or c for c in META["creator"])
+    texts = {exif.DESCRIPTION: META["description"], exif.ARTIST: names}
+    ours = {}
+    for name, (ending, data) in _variants().items():
+        (tmp_path / f"{name}.{ending}").write_bytes(data)
+        once, _ = formats.written(data, f".{ending}", medrds.merge_xmp(
+            formats.held(data, f".{ending}").packet, META), texts)
+        twice, _ = formats.written(once, f".{ending}", medrds.merge_xmp(
+            formats.held(once, f".{ending}").packet, {"title": "Neu", "kind": "lab"}),
+            {exif.DESCRIPTION: None, exif.ARTIST: None})
+        ours[name] = (ending, once, twice)
+    (tmp_path / "meta.json").write_text(json.dumps(META), encoding="utf-8")
+    script = (
+        "import { readFileSync, writeFileSync } from 'node:fs';"
+        f"import {{ writePicture }} from '{MEDRDS / 'lib' / 'index.mjs'}';"
+        f"const schema = JSON.parse(readFileSync('{MEDRDS / 'schema' / 'medrds.json'}', 'utf8'));"
+        f"const meta = JSON.parse(readFileSync('{tmp_path / 'meta.json'}', 'utf8'));"
+        f"for (const [name, ext] of {json.dumps([[n, e] for n, (e, _o, _t) in ours.items()])}) {{"
+        f"  const data = new Uint8Array(readFileSync(`{tmp_path}/${{name}}.${{ext}}`));"
+        "  const once = writePicture(data, ext, meta, schema).bytes;"
+        f"  writeFileSync(`{tmp_path}/${{name}}.once`, once);"
+        "  const twice = writePicture(once, ext, { title: 'Neu', kind: 'lab' }, schema).bytes;"
+        f"  writeFileSync(`{tmp_path}/${{name}}.twice`, twice);"
+        "}")
+    subprocess.run(["node", "--input-type=module", "-e", script], check=True)
+    for name, (_ending, once, twice) in ours.items():
+        assert (tmp_path / f"{name}.once").read_bytes() == once, name
+        assert (tmp_path / f"{name}.twice").read_bytes() == twice, name

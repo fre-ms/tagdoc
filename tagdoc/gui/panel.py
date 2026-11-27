@@ -31,7 +31,7 @@ from PySide6.QtWidgets import (
 from tagdoc import medrds
 from tagdoc.errors import TagdocError, describe_error
 from tagdoc.gui.words import Words
-from tagdoc.project import RULES, Project
+from tagdoc.project import CAMERA_DATE, RULES, Project
 
 _LINES = ("creator", "institution")  # one per line
 _COMMAS = ("subject", "language", "typeCode")  # comma between
@@ -68,6 +68,17 @@ class DescribePanel(QWidget):
                 line.addWidget(button)
                 row = line
             form.addRow(self.w(f"field_{name}"), row)
+            if name == "date":
+                self.camera = QComboBox()
+                for choice in CAMERA_DATE:
+                    self.camera.addItem(self.w(f"camera_{choice}"), choice)
+                self.camera.setToolTip(self.w("camera_tip"))
+                self.camera.currentIndexChanged.connect(lambda _i: self._camera_chosen())
+                self.camera_said = QLabel("")
+                line = QHBoxLayout()
+                line.addWidget(self.camera, 1)
+                line.addWidget(self.camera_said)
+                form.addRow(self.w("camera_date"), line)
         self.cards = QListWidget()
         self.cards.setMaximumHeight(90)
         remove = QPushButton(self.w("remove_card"))
@@ -147,12 +158,27 @@ class DescribePanel(QWidget):
                 else:
                     widget.setText(self._as_text(name, value))
                 widget.setStyleSheet("" if self.project.by(name) == "person" else "color: grey;")
+            chosen = self.camera.findData(self.project.options.camera_date)
+            self.camera.setCurrentIndex(max(0, chosen))
+            self.camera_said.setText(self.project.camera_moment() or self.w("camera_none"))
             self.cards.clear()
             for card in self.project.value("cards") or []:
                 self.cards.addItem(medrds.name_of_card(card) or medrds.uid_of_card(card) or "?")
         finally:
             self._muted = False
         self._note()
+
+    def _camera_chosen(self) -> None:
+        """The person chose when the camera's date counts: tagdoc's suggestions anew."""
+        if self._muted:
+            return
+        choice = self.camera.currentData()
+        if choice == self.project.options.camera_date:
+            return
+        self.commit()
+        self.project.set_camera_date(choice)
+        self.changed.emit()
+        self.show_project()
 
     def commit(self) -> None:
         """Take what the form says into the project, field by field where it differs; a

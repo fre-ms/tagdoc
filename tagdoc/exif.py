@@ -21,6 +21,7 @@ Text is written as UTF-8 in the type EXIF calls ASCII, as most programs write an
 
 from __future__ import annotations
 
+import re
 import struct
 from dataclasses import dataclass
 
@@ -124,6 +125,48 @@ def packet(block: bytes) -> bytes | None:
     for entry in entries:
         if entry.tag == XMP:
             return _value(block, entry, order)
+    return None
+
+
+_DETAILS = 0x8769  # the directory of the EXIF details
+_TAKEN, _TAKEN_OFFSET, _CHANGED = 0x9003, 0x9011, 306  # DateTimeOriginal, its offset, DateTime
+_CHANGED_OFFSET = 0x9010
+_MOMENT = re.compile(r"^(\d{4}):(\d{2}):(\d{2})(?: (\d{2}):(\d{2}):(\d{2}))?")
+_OFFSET = re.compile(r"^([+-]\d{2}:\d{2})$")
+
+
+def iso_moment(taken: str, offset: str | None = None) -> str | None:
+    """An EXIF moment (``2026:03:14 08:15:00``) as ISO 8601: with its time where the
+    offset from UTC is known (``2026-03-14T08:15:00+01:00``), else the date alone (a time
+    without an offset names no moment)."""
+    m = _MOMENT.match(taken.strip())
+    if not m or m.group(1) == "0000":
+        return None
+    date = f"{m.group(1)}-{m.group(2)}-{m.group(3)}"
+    if m.group(4) is not None and offset and _OFFSET.match(offset.strip()):
+        return f"{date}T{m.group(4)}:{m.group(5)}:{m.group(6)}{offset.strip()}"
+    return date
+
+
+def taken(block: bytes) -> str | None:
+    """When the picture was taken, as its EXIF says (DateTimeOriginal with its offset, else
+    DateTime), in ISO 8601 (:func:`iso_moment`); None where it says nothing."""
+    order = _order(block)
+    first, _next = _directory(block, struct.unpack_from(order + "I", block, 4)[0], order)
+    said: dict[int, str] = {}
+    for entry in first:
+        if entry.tag in (_CHANGED, _CHANGED_OFFSET) and entry.kind == ASCII:
+            said[entry.tag] = _text(_value(block, entry, order))
+        if entry.tag == _DETAILS and entry.kind in (4, 13):
+            details, _following = _directory(
+                block, struct.unpack_from(order + "I", _value(block, entry, order))[0], order)
+            for inner in details:
+                if inner.tag in (_TAKEN, _TAKEN_OFFSET, _CHANGED_OFFSET) and inner.kind == ASCII:
+                    said[inner.tag] = _text(_value(block, inner, order))
+    if said.get(_TAKEN):
+        return iso_moment(said[_TAKEN], said.get(_TAKEN_OFFSET))
+    if said.get(_CHANGED):
+        return iso_moment(said[_CHANGED], said.get(_CHANGED_OFFSET))
     return None
 
 
@@ -267,4 +310,4 @@ def new(changes: dict[int, tuple[int, bytes] | None]) -> bytes | None:
 
 
 __all__ = ["ARTIST", "ASCII", "BYTE", "DESCRIPTION", "MAKE", "MODEL", "SOFTWARE", "TEXT", "XMP",
-           "NotExif", "as_text", "changed", "new", "packet", "read"]
+           "NotExif", "as_text", "changed", "iso_moment", "new", "packet", "read", "taken"]

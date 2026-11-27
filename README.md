@@ -19,7 +19,7 @@ digital documents, one tool for one step: [typdoc](https://github.com/fre-ms/typ
 [ocrdoc](https://github.com/fre-ms/ocrdoc) recognises what is on it, semdoc (to come) understands it, tagdoc
 describes it. It works on any PDF and any picture on its own as well.
 
-**Status: pre-alpha (0.3.0).**
+**Status: pre-alpha (0.4.0).**
 
 ## What tagdoc writes, and what it leaves to the records app
 
@@ -64,12 +64,14 @@ standard stays (a mark of PDF/A, the producer).
 | BMP, PNM | no place: the sidecar `<file name>.xmp` | |
 
 - **The picture's own data are not touched**: the tests decode every type before and after and compare the
-  pixels. The XMP of a JPEG and of a PNG is written as medRDS's reference library writes it, byte for byte;
-  and that library reads the description back from every type.
+  pixels. Every format is written as medRDS's reference library writes it (0.15.1), byte for byte, and
+  that library reads the description back from every type.
 - **What the picture says of itself stays**: the camera, the moment, the place, a colour profile, every
   property of its XMP the standard does not define. tagdoc reads it too: a description and an author the
-  picture names are suggested, and the camera as the program it was made with. A camera's date is never
-  taken for the clinical date.
+  picture names are suggested, and the camera as the program it was made with.
+- **The camera's date is a choice** (`--camera-date never|missing|first`): it says when the photo was
+  taken, which is the clinical date of a photographed finding and not of a photographed report. By default
+  it is suggested nowhere; `missing` suggests it where the text names no date, `first` before the text's.
 - **In step** are the two texts EXIF has for what a description says, `ImageDescription` (the description)
   and `Artist` (the names of the authors), written as UTF-8.
 - **Nothing moves, and what is replaced is gone.** An EXIF block keeps every entry where it stands (a
@@ -81,8 +83,7 @@ standard stays (a mark of PDF/A, the producer).
 - **What tagdoc suggests for a picture** comes from the reading ocrdoc laid beside it
   (`<name>.reading.json`, where it names this very picture): the same rules as for the text of a PDF.
 
-medRDS (0.15) names the place for PDF, JPEG and PNG and a sidecar for the rest; tagdoc writes each format's
-own place, which the standard's library reads all the same. `--sidecar` keeps any file as it came.
+These are the places medRDS names (7.4, from medRDS 0.15.1). `--sidecar` keeps any file as it came.
 
 ## Every step can be reproduced and resumed
 

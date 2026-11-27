@@ -451,8 +451,42 @@ def written(data: bytes, packet: str | None, block: bytes | None) -> bytes:
     new_meta = meta_with(_written_locations(locations))
     if len(new_meta) - (file.meta.end - file.meta.start) != grown:
         raise _fail()
-    return bytes(work[:file.meta.start]) + new_meta + bytes(work[file.meta.end:]) \
+    out = bytes(work[:file.meta.start]) + new_meta + bytes(work[file.meta.end:]) \
         + bytes(appended)
+    if not same_items(data, out, payloads):
+        raise _fail()
+    return out
+
+
+def same_items(before: bytes, after: bytes, written: list[tuple[bytes, bytes, bytes]]) -> bool:
+    """True when ``after`` holds every item ``before`` held with the very bytes it held, but
+    those replaced, and the items written (type, content type, bytes) with the bytes
+    written; and the same boxes that say how the pictures are shown.  The standard's
+    library checks the same (``sameItems``)."""
+    try:
+        a, b = _read(before), _read(after)
+    except NoPlace:
+        return False
+    replaced = {a.found(kind, content) for kind, content, _data in written} - {None}
+    try:
+        for item in a.locations.items:
+            if item.ident in replaced:
+                continue
+            other = b.item(item.ident)
+            if other is None or a.bytes_of(item) != b.bytes_of(other):
+                return False
+        for kind, content, data in written:
+            ident = b.found(kind, content)
+            made = None if ident is None else b.item(ident)
+            if made is None or b.bytes_of(made) != data:
+                return False
+    except NoPlace:
+        return False
+
+    def shown(file: _File) -> list[bytes]:
+        return [file.data[c.start:c.end] for c in file.children if c.kind in (b"iprp", b"pitm")]
+
+    return a.primary == b.primary and shown(a) == shown(b)
 
 
 def same_picture(old: bytes, new: bytes, packet: str | None, block: bytes | None) -> bool:

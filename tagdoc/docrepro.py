@@ -27,8 +27,14 @@ class TagdocAdapter:
         """tagdoc's project on the document of the step before; the program the document
         is made with is the one docrepro names (``creator_tool``)."""
         options = Options(sidecar=bool(settings.get("sidecar", False)),
-                          creator_tool=settings.get("creator_tool"))
+                          creator_tool=settings.get("creator_tool"),
+                          camera_date=str(settings.get("camera_date") or "never"))
         return Project.open(source, None if config else options, config)
+
+    def use_originals(self, project: Project, originals: list[Path]) -> None:
+        """The files the chain began with: their camera data count as well (optdoc's
+        prepared page carries none)."""
+        project.originals = list(originals)
 
     def config(self, project: Project) -> dict[str, Any]:
         return project.config()

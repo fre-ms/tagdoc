@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.0 (2026-11-27)
+
+Interface 3 and `tagdoc-config` version 1 stay; one setting is added.
+
+- **The camera's date is the person's choice** (`--camera-date never|missing|first`, in the
+  configuration document `options.camera_date`; a field in the window): the date a camera gives,
+  when the photo was taken, is suggested as the clinical date nowhere (the default), where the
+  text names none, or before the text's. It is the clinical date of a photographed finding, and not
+  of a photographed report. tagdoc reads it from the picture's EXIF (`DateTimeOriginal` with its
+  offset, else `DateTime`) or XMP, from the pictures a PDF holds as they came, and from the files
+  named with `--original` (docrepro names its originals).
+- **Every format is written as medRDS's reference library writes it** (0.15.1, which names the
+  places of TIFF, WebP, HEIC and GIF now and keeps EXIF in step in every format), byte for byte; a
+  test compares both for every format and every layout of a HEIC file tried.
+- **The XMP of a TIFF is read from entry 700, that of a HEIC from its item**, as the library reads
+  it; a packet elsewhere in such a file (an older one no entry names) no longer counts.
+- What is written into a HEIC file is also read back as the library reads it before it is
+  trusted: every item there was holds the very bytes it held.
+
 ## 0.3.0 (2026-11-27)
 
 A picture stays a picture, and says what it is. docrepro forces no file type; tagdoc now describes
