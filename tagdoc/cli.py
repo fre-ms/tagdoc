@@ -21,7 +21,7 @@ from tagdoc import __version__, medrds
 from tagdoc.errors import TagdocError
 from tagdoc.project import SUFFIX, Options, Project, load_config
 
-INTERFACE = 1
+INTERFACE = 2
 TOOL = "tagdoc"
 # the options that set a field: option name, field, whether it may be given more than once
 _FIELDS: tuple[tuple[str, str, bool], ...] = (

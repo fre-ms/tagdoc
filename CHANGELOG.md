@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.2.0 (2026-11-27)
+
+Interface 2: one field renamed, in every tool of docrepro at once.
+
+- **The answer names the described PDF `document`**, no longer `pdf` (`run`, and `edit` on
+  Apply); `tagdoc.output.write` returns it under that key. No step of docrepro is to force a file
+  type, so a document need not be a PDF, and a field called `pdf` would then point at a picture.
+  tagdoc itself still describes PDFs; that it describes a picture as medRDS says for its format
+  (7.4) is to come. Callers read `document` where they read `pdf`.
+
 ## 0.1.1 (2026-11-26)
 
 - tagdoc takes doccor from its tag `v0.2.0`, as optdoc 0.8.0 and ocrdoc 0.2.0 do, so that the

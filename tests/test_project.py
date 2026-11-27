@@ -56,7 +56,7 @@ def test_medrds_reads_what_tagdoc_wrote(tmp_path: Path, report: Path) -> None:
         paths = output.write(project.build(), tmp_path / "out")
     finally:
         project.close()
-    meta = medrds_reads(paths["pdf"])
+    meta = medrds_reads(paths["document"])
     assert meta["title"] == "Laborbefund" and meta["kind"] == "lab"
     assert meta["date"] == "2026-03-12" and meta["confidentiality"] == "R"
     assert meta["institution"][0].endswith("<urn:uuid:4d2c9b1e-7a3f-4c5d-9e8f-0a1b2c3d4e5f>")
@@ -90,7 +90,7 @@ def test_a_signed_pdf_stays_as_it_is(tmp_path: Path, report: Path) -> None:
         paths = output.write(project.build(), tmp_path / "out")
     finally:
         project.close()
-    assert paths["pdf"].read_bytes() == signed.read_bytes()
+    assert paths["document"].read_bytes() == signed.read_bytes()
     assert paths["sidecar"].name == "signiert.pdf.xmp"
     assert "<rdf:li xml:lang=\"x-default\">Laborbefund</rdf:li>" in paths["sidecar"].read_text()
     plain = Project.open(report, Options(sidecar=True))

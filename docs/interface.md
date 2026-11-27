@@ -1,13 +1,17 @@
 # tagdoc's command line as an interface
 
-**Interface 1**, since tagdoc 0.1.0. One JSON object on standard output for every command, success or failure,
+**Interface 2**, since tagdoc 0.2.0. One JSON object on standard output for every command, success or failure,
 with `interface` and `made_with`; exit status 0 or 2; no path or content of a document in any answer or
 message; never the network. Within one interface, new fields and kinds of error may come.
+
+**From interface 1:** the answer names the described PDF `document`, no longer `pdf`, as every tool
+of docrepro does from now on: a document need not be a PDF (no step is to force a file type), and a
+field called `pdf` would then point at a picture. Nothing else changed.
 
 ## `about`
 
 ```json
-{"interface": 1, "made_with": "tagdoc 0.1.0", "version": "0.1.0",
+{"interface": 2, "made_with": "tagdoc 0.2.0", "version": "0.2.0",
  "standard": "https://medrds.org/spec/0.15",
  "fields": ["title", "kind", "creator", "description", "subject", "language", "source", "creatorTool",
             "date", "typeCode", "institution", "authenticator", "confidentiality", "cards"],
@@ -29,8 +33,8 @@ Values (each a person's decision): `--title`, `--kind <kind>`, `--date <ISO 8601
 `usage` error.
 
 ```json
-{"interface": 1, "made_with": "tagdoc 0.1.0",
- "pdf": "<folder>/<stem>.pdf", "config": "<folder>/<stem>.tagdoc.json", "sidecar": null,
+{"interface": 2, "made_with": "tagdoc 0.2.0",
+ "document": "<folder>/<stem>.pdf", "config": "<folder>/<stem>.tagdoc.json", "sidecar": null,
  "signed": false, "rebased": false, "decided": ["institution", "kind"],
  "problems": [{"code": "META_MISSING", "field": "date", "why": "date is required"}]}
 ```
@@ -45,7 +49,7 @@ later* `{"config": …, "finished": false}`; *Cancel* is the error `cancelled`.
 ## The configuration document: `tagdoc-config`, version 1
 
 ```json
-{"format": "tagdoc-config", "version": 1, "made_with": "tagdoc 0.1.0",
+{"format": "tagdoc-config", "version": 1, "made_with": "tagdoc 0.2.0",
  "standard": "https://medrds.org/spec/0.15",
  "input": {"sha256": "…", "bytes": 245678, "suffix": ".pdf"},
  "options": {"sidecar": false, "creator_tool": "docrepro 0.1.0"},

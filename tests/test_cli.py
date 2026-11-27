@@ -74,5 +74,5 @@ def test_edit_self_test_gives_what_run_gives(tmp_path: Path, report: Path) -> No
     edited = run(["edit", str(report), "--out", str(tmp_path / "e"), "--self-test",
                   "--language", "de"])
     ran = run(["run", str(report), "--out", str(tmp_path / "r")])
-    for key in ("pdf", "config"):
+    for key in ("document", "config"):
         assert Path(edited[key]).read_bytes() == Path(ran[key]).read_bytes(), key
